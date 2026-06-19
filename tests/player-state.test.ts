@@ -50,6 +50,25 @@ describe('PlayerStateMachine', () => {
     expect(player.startBlocking(1000)).toBe(false);
   });
 
+  it('consumes the counter window only within its window and only once', () => {
+    const player = new PlayerStateMachine();
+    player.grantCounterWindow(1280);
+
+    expect(player.consumeCounterWindow(1300)).toBe(false);
+    expect(player.consumeCounterWindow(1200)).toBe(true);
+    // Already consumed → no longer available even within the window.
+    expect(player.consumeCounterWindow(1200)).toBe(false);
+  });
+
+  it('clears the counter window on reset', () => {
+    const player = new PlayerStateMachine();
+    player.grantCounterWindow(5000);
+
+    player.reset();
+
+    expect(player.consumeCounterWindow(1000)).toBe(false);
+  });
+
   it('resets health, stamina, guard, block and invulnerability state', () => {
     const player = new PlayerStateMachine({
       health: 0,

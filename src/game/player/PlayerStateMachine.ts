@@ -4,6 +4,7 @@ export type PlayerStateOptions = Partial<CombatantState>;
 
 export class PlayerStateMachine {
   readonly state: CombatantState;
+  private counterWindowUntil = 0;
 
   constructor(options: PlayerStateOptions = {}) {
     this.state = {
@@ -64,6 +65,20 @@ export class PlayerStateMachine {
     return CombatSystem.createHeavyStrike();
   }
 
+  /** 完美格挡（听风断影）后开启反击窗口，期间下一次攻击附带额外收益。 */
+  grantCounterWindow(until: number) {
+    this.counterWindowUntil = until;
+  }
+
+  /** 若仍在反击窗口内则消费之并返回 true，否则返回 false。 */
+  consumeCounterWindow(now: number) {
+    if (now <= this.counterWindowUntil) {
+      this.counterWindowUntil = 0;
+      return true;
+    }
+    return false;
+  }
+
   recoverStamina(amount: number) {
     if (this.isDead()) {
       return;
@@ -95,6 +110,7 @@ export class PlayerStateMachine {
     this.state.perfectGuardUntil = 0;
     this.state.invulnerableUntil = 0;
     this.state.staggeredUntil = 0;
+    this.counterWindowUntil = 0;
   }
 
   isDead() {

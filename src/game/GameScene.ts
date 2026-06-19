@@ -6,6 +6,7 @@ import { Player } from './player/Player';
 import { StoryFlags, type ClueId } from './story/StoryFlags';
 import { createCharacterTextures } from './art/CharacterArt';
 import { AudioDirector } from './audio/AudioDirector';
+import { CombatSystem, type Strike } from './combat/CombatSystem';
 
 type InvestigationPoint = {
   x: number;
@@ -21,8 +22,8 @@ export class GameScene extends Phaser.Scene {
   private player!: Player;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private hud!: Hud;
-  private readonly story = new StoryFlags();
-  private readonly enemies: Enemy[] = [];
+  private story = new StoryFlags();
+  private enemies: Enemy[] = [];
   private boss: BossWuzhen | null = null;
   private points: InvestigationPoint[] = [];
   private ground!: Phaser.Physics.Arcade.StaticGroup;
@@ -31,10 +32,26 @@ export class GameScene extends Phaser.Scene {
   private gameOverStarted = false;
   private restartKey!: Phaser.Input.Keyboard.Key;
   private muteKey!: Phaser.Input.Keyboard.Key;
-  private readonly audioDirector = new AudioDirector();
+  private audioDirector = new AudioDirector();
 
   constructor() {
     super('GameScene');
+  }
+
+  /**
+   * Phaser 在 scene.restart() 时复用同一实例并重跑 create()，但不会重跑构造函数 /
+   * 字段初始化器。所有每局可变的进度状态必须在这里显式归位，否则会跨重开残留
+   * （例如 gameOverStarted 残留为 true 会让玩家无敌、线索 / 暗门状态残留会破坏流程）。
+   */
+  private resetRunState() {
+    this.story = new StoryFlags();
+    this.enemies = [];
+    this.boss = null;
+    this.points = [];
+    this.chamberOpened = false;
+    this.endingStarted = false;
+    this.gameOverStarted = false;
+    this.audioDirector.setMode('explore');
   }
 
   preload() {
@@ -42,6 +59,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   create() {
+    this.resetRunState();
     this.physics.world.setBounds(0, 0, 4400, 720);
     this.cameras.main.setBounds(0, 0, 4400, 720);
 
@@ -50,11 +68,10 @@ export class GameScene extends Phaser.Scene {
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.restartKey = this.input.keyboard!.addKey('R');
     this.muteKey = this.input.keyboard!.addKey('M');
-    this.input.keyboard!.on('keydown', (event: KeyboardEvent) => {
+    // 首次键盘输入用于唤醒 AudioContext（浏览器自动播放策略要求用户手势）。
+    // 重开统一由 handleGameOverInput() 处理，这里不再重复触发 restart。
+    this.input.keyboard!.on('keydown', () => {
       void this.startAudio();
-      if (this.gameOverStarted && event.key.toLowerCase() === 'r') {
-        this.scene.restart();
-      }
     });
     this.input.on('pointerdown', () => {
       void this.startAudio();
@@ -305,10 +322,15 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.showSlash();
+    const empowered = this.player.machine.consumeCounterWindow(time);
+    const finalStrike: Strike = empowered
+      ? { ...strike, damage: Math.round(strike.damage * 1.6), guardDamage: 999 }
+      : strike;
+
+    this.showSlash(empowered);
     for (const enemy of this.enemies) {
       if (enemy.active && Math.abs(enemy.x - this.player.x) < 92 && Math.abs(enemy.y - this.player.y) < 86) {
-        enemy.receiveStrike(strike, time);
+        enemy.receiveStrike(finalStrike, time);
       }
     }
 
@@ -317,17 +339,24 @@ export class GameScene extends Phaser.Scene {
       Math.abs(this.boss.x - this.player.x) < 112 &&
       Math.abs(this.boss.y - this.player.y) < 94
     ) {
-      this.boss.receiveStrike(strike, time);
+      this.boss.receiveStrike(finalStrike, time);
       if (!this.boss.active && !this.endingStarted) {
         this.startEnding();
       }
     }
   }
 
-  private showSlash() {
+  private showSlash(empowered = false) {
     const x = this.player.x + this.player.facing * 48;
     const slash = this.add
-      .rectangle(x, this.player.y - 8, 74, 9, 0xaefaff, 0.9)
+      .rectangle(
+        x,
+        this.player.y - 8,
+        empowered ? 96 : 74,
+        empowered ? 13 : 9,
+        empowered ? 0xfff1a8 : 0xaefaff,
+        0.9,
+      )
       .setAngle(this.player.facing > 0 ? -18 : 18)
       .setDepth(40);
     this.tweens.add({
@@ -364,36 +393,30 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    const result = this.player.machine.state.isBlocking
-      ? this.resolveBlockedHit(strike, time)
-      : this.resolveDirectHit(strike, time);
-
-    if (result) {
-      this.player.setTint(0xff5964);
-      this.cameras.main.shake(90, 0.003);
-      this.time.delayedCall(90, () => this.player.clearTint());
-    }
-  }
-
-  private resolveDirectHit(strike: ReturnType<Enemy['makeStrike']>, time: number) {
     const state = this.player.machine.state;
-    if (time < state.invulnerableUntil) {
-      return false;
-    }
-    this.player.machine.takeDamage(strike.damage);
-    state.guard = Math.min(state.maxGuard, state.guard + strike.guardDamage);
-    return true;
-  }
+    const result = CombatSystem.resolveStrike(strike, state, time);
+    Object.assign(state, result.target);
 
-  private resolveBlockedHit(strike: ReturnType<Enemy['makeStrike']>, time: number) {
-    const state = this.player.machine.state;
-    if (time <= state.perfectGuardUntil) {
-      this.hud.showSubtitle('听风断影的影子还未成形，但你挡住了这一击。', 1800);
-      return false;
+    if (result.wasPerfectGuard) {
+      if (result.counterWindowUntil !== null) {
+        this.player.machine.grantCounterWindow(result.counterWindowUntil);
+      }
+      this.hud.showSubtitle('听风断影——你卸开这一击，反手已有破绽可乘。', 1500);
+      return;
     }
-    this.player.machine.takeDamage(Math.floor(strike.damage * 0.35));
-    state.stamina = Math.max(0, state.stamina - strike.staminaDamage);
-    return true;
+
+    // 无敌帧内 / 无实际影响时不给受击反馈。
+    if (result.damageDealt <= 0 && !result.wasGuardBroken) {
+      return;
+    }
+
+    this.player.setTint(0xff5964);
+    this.cameras.main.shake(90, 0.003);
+    this.time.delayedCall(90, () => {
+      if (this.player.active) {
+        this.player.clearTint();
+      }
+    });
   }
 
   private startGameOver() {
