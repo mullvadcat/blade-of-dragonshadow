@@ -18,6 +18,9 @@ export const SFX_NAMES = [
 
 export type SfxName = (typeof SFX_NAMES)[number];
 
+/** 主音量。背景音乐 / 环境声经多级增益后整体偏弱，这里整体抬高到可听水平。 */
+const MASTER_VOLUME = 0.5;
+
 export interface AudioEngine {
   start(): Promise<void>;
   stop(): void;
@@ -143,11 +146,11 @@ class WebAudioEngine implements AudioEngine {
     this.musicGain = this.context.createGain();
     this.sfxGain = this.context.createGain();
 
-    this.master.gain.value = this.muted ? 0 : 0.28;
+    this.master.gain.value = this.muted ? 0 : MASTER_VOLUME;
     this.rainGain.gain.value = 0.16;
-    this.droneGain.gain.value = 0.04;
-    this.musicGain.gain.value = 0.11;
-    this.sfxGain.gain.value = 0.9;
+    this.droneGain.gain.value = 0.05;
+    this.musicGain.gain.value = 0.5;
+    this.sfxGain.gain.value = 0.8;
 
     this.rainGain.connect(this.master);
     this.droneGain.connect(this.master);
@@ -180,8 +183,13 @@ class WebAudioEngine implements AudioEngine {
 
     const now = this.context.currentTime;
     const rain = mode === 'gameOver' ? 0.045 : mode === 'ending' ? 0.09 : 0.16;
-    const drone = mode === 'boss' ? 0.1 : mode === 'combat' ? 0.075 : mode === 'ending' ? 0.035 : 0.045;
-    const music = mode === 'gameOver' ? 0.015 : mode === 'boss' ? 0.15 : mode === 'combat' ? 0.13 : 0.1;
+    const drone = mode === 'boss' ? 0.12 : mode === 'combat' ? 0.09 : mode === 'ending' ? 0.05 : 0.06;
+    const music =
+      mode === 'gameOver' ? 0.12 :
+      mode === 'boss' ? 0.8 :
+      mode === 'combat' ? 0.7 :
+      mode === 'ending' ? 0.45 :
+      0.55;
 
     this.rainGain.gain.cancelScheduledValues(now);
     this.droneGain.gain.cancelScheduledValues(now);
@@ -199,7 +207,7 @@ class WebAudioEngine implements AudioEngine {
 
     const now = this.context.currentTime;
     this.master.gain.cancelScheduledValues(now);
-    this.master.gain.linearRampToValueAtTime(muted ? 0 : 0.28, now + 0.18);
+    this.master.gain.linearRampToValueAtTime(muted ? 0 : MASTER_VOLUME, now + 0.18);
   }
 
   private startRainNoise() {
@@ -279,7 +287,7 @@ class WebAudioEngine implements AudioEngine {
     filter.type = 'lowpass';
     filter.frequency.setValueAtTime(1200, when);
     gain.gain.setValueAtTime(0.0001, when);
-    gain.gain.exponentialRampToValueAtTime(this.mode === 'boss' ? 0.18 : 0.11, when + 0.025);
+    gain.gain.exponentialRampToValueAtTime(this.mode === 'boss' ? 0.4 : 0.34, when + 0.025);
     gain.gain.exponentialRampToValueAtTime(0.0001, when + 1.25);
     osc.connect(filter);
     filter.connect(gain);
