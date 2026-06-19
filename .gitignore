@@ -1,0 +1,19 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+tsconfig.tsbuildinfo
+
+# logs
+*.log
+npm-debug.log*
+
+# editor / OS
+.DS_Store
+.vscode/
+.idea/
+
+# tooling artifacts
+.playwright-cli/
+.superpowers/
