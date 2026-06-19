@@ -1,13 +1,20 @@
 import Phaser from 'phaser';
 import { CombatSystem, type CombatantState, type Strike } from '../combat/CombatSystem';
 import { CombatActor } from './CombatActor';
+import type { SfxName } from '../audio/AudioDirector';
 
 export type EnemyKind = 'scout' | 'bandit';
 
 export class Enemy extends CombatActor {
   readonly kind: EnemyKind;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, kind: EnemyKind) {
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    kind: EnemyKind,
+    playSfx?: (name: SfxName) => void,
+  ) {
     const combatState: CombatantState = {
       health: kind === 'scout' ? 42 : 58,
       maxHealth: kind === 'scout' ? 42 : 58,
@@ -29,6 +36,10 @@ export class Enemy extends CombatActor {
       attackRange: 62,
       hitTint: 0xff5b5b,
       hitFlashMs: 90,
+      telegraphColor: 0xffd166,
+      strikeColor: 0xff7b5b,
+      defeatSfx: 'enemyDown',
+      playSfx,
       nameplate: {
         text: kind === 'scout' ? '黑鳞探子' : '伪山匪',
         style: { color: '#d9c89e', fontFamily: 'serif', fontSize: '13px' },
@@ -57,10 +68,18 @@ export class Enemy extends CombatActor {
     this.followUi();
   }
 
-  makeStrike(time: number): Strike {
-    this.nextAttackAt = time + (this.kind === 'scout' ? 1050 : 1350);
+  protected buildStrike(): Strike {
     return this.kind === 'scout'
       ? CombatSystem.createLightStrike()
       : CombatSystem.createHeavyStrike();
+  }
+
+  protected attackInterval(): number {
+    return this.kind === 'scout' ? 1050 : 1350;
+  }
+
+  protected telegraphMs(): number {
+    // 山匪重斩前摇更长，更好预判；探子轻快但仍给出可见信号。
+    return this.kind === 'scout' ? 340 : 460;
   }
 }

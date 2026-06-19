@@ -5,7 +5,7 @@ import { Hud } from './ui/Hud';
 import { Player } from './player/Player';
 import { StoryFlags, type ClueId } from './story/StoryFlags';
 import { createCharacterTextures } from './art/CharacterArt';
-import { AudioDirector } from './audio/AudioDirector';
+import { AudioDirector, type SfxName } from './audio/AudioDirector';
 import { CombatSystem, type Strike } from './combat/CombatSystem';
 
 type InvestigationPoint = {
@@ -33,6 +33,7 @@ export class GameScene extends Phaser.Scene {
   private restartKey!: Phaser.Input.Keyboard.Key;
   private muteKey!: Phaser.Input.Keyboard.Key;
   private audioDirector = new AudioDirector();
+  private sfx: (name: SfxName) => void = () => {};
 
   constructor() {
     super('GameScene');
@@ -63,8 +64,10 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.setBounds(0, 0, 4400, 720);
     this.cameras.main.setBounds(0, 0, 4400, 720);
 
+    this.sfx = (name: SfxName) => this.audioDirector.playSfx(name);
+
     this.createWorld();
-    this.player = new Player(this, 130, 560);
+    this.player = new Player(this, 130, 560, this.sfx);
     this.cursors = this.input.keyboard!.createCursorKeys();
     this.restartKey = this.input.keyboard!.addKey('R');
     this.muteKey = this.input.keyboard!.addKey('M');
@@ -259,8 +262,8 @@ export class GameScene extends Phaser.Scene {
 
   private createEnemies() {
     for (const enemy of [
-      new Enemy(this, 1240, 580, 'scout'),
-      new Enemy(this, 1740, 580, 'bandit'),
+      new Enemy(this, 1240, 580, 'scout', this.sfx),
+      new Enemy(this, 1740, 580, 'bandit', this.sfx),
     ]) {
       this.enemies.push(enemy);
       this.physics.add.collider(enemy, this.ground);
@@ -310,7 +313,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnBoss() {
-    this.boss = new BossWuzhen(this, 3300, 580);
+    this.boss = new BossWuzhen(this, 3300, 580, this.sfx);
     this.physics.add.collider(this.boss, this.ground);
     this.audioDirector.setMode('boss');
     this.hud.showSubtitle('乌针：龙刃刀经，终究还是要归黑鳞会。');
@@ -327,10 +330,14 @@ export class GameScene extends Phaser.Scene {
       ? { ...strike, damage: Math.round(strike.damage * 1.6), guardDamage: 999 }
       : strike;
 
+    this.sfx(empowered ? 'slashEmpowered' : strike.damage >= 24 ? 'slashHeavy' : 'slashLight');
     this.showSlash(empowered);
+
+    let landed = false;
     for (const enemy of this.enemies) {
       if (enemy.active && Math.abs(enemy.x - this.player.x) < 92 && Math.abs(enemy.y - this.player.y) < 86) {
         enemy.receiveStrike(finalStrike, time);
+        landed = true;
       }
     }
 
@@ -340,9 +347,14 @@ export class GameScene extends Phaser.Scene {
       Math.abs(this.boss.y - this.player.y) < 94
     ) {
       this.boss.receiveStrike(finalStrike, time);
+      landed = true;
       if (!this.boss.active && !this.endingStarted) {
         this.startEnding();
       }
+    }
+
+    if (landed) {
+      this.sfx('hit');
     }
   }
 
@@ -371,8 +383,9 @@ export class GameScene extends Phaser.Scene {
   private updateEnemies(time: number) {
     for (const enemy of this.enemies) {
       enemy.update(time, this.player.x);
-      if (enemy.canAttack(time, this.player.x)) {
-        this.applyEnemyStrike(enemy.makeStrike(time), time);
+      const strike = enemy.advanceAttack(time, this.player.x);
+      if (strike) {
+        this.applyEnemyStrike(strike, time);
       }
     }
   }
@@ -383,12 +396,13 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.boss.update(time, this.player.x);
-    if (this.boss.canAttack(time, this.player.x)) {
-      this.applyEnemyStrike(this.boss.makeStrike(time), time);
+    const strike = this.boss.advanceAttack(time, this.player.x);
+    if (strike) {
+      this.applyEnemyStrike(strike, time);
     }
   }
 
-  private applyEnemyStrike(strike: ReturnType<Enemy['makeStrike']>, time: number) {
+  private applyEnemyStrike(strike: Strike, time: number) {
     if (this.endingStarted || this.gameOverStarted || this.player.machine.isDead()) {
       return;
     }
@@ -401,6 +415,7 @@ export class GameScene extends Phaser.Scene {
       if (result.counterWindowUntil !== null) {
         this.player.machine.grantCounterWindow(result.counterWindowUntil);
       }
+      this.sfx('perfectGuard');
       this.hud.showSubtitle('听风断影——你卸开这一击，反手已有破绽可乘。', 1500);
       return;
     }
@@ -410,6 +425,7 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    this.sfx(this.player.machine.state.isBlocking ? 'block' : 'playerHurt');
     this.player.setTint(0xff5964);
     this.cameras.main.shake(90, 0.003);
     this.time.delayedCall(90, () => {

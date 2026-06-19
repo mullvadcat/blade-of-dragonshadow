@@ -2,6 +2,9 @@ import { CombatSystem, type CombatantState, type Strike } from '../combat/Combat
 
 export type PlayerStateOptions = Partial<CombatantState>;
 
+/** 举盾瞬间的完美格挡（听风断影）判定窗口。放宽以让格挡更从容。 */
+export const PERFECT_GUARD_WINDOW_MS = 300;
+
 export class PlayerStateMachine {
   readonly state: CombatantState;
   private counterWindowUntil = 0;
@@ -38,7 +41,7 @@ export class PlayerStateMachine {
     }
 
     this.state.isBlocking = true;
-    this.state.perfectGuardUntil = now + 140;
+    this.state.perfectGuardUntil = now + PERFECT_GUARD_WINDOW_MS;
     return true;
   }
 

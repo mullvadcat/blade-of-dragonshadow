@@ -2,11 +2,28 @@ export const AUDIO_MODES = ['explore', 'combat', 'boss', 'gameOver', 'ending'] a
 
 export type AudioMode = (typeof AUDIO_MODES)[number];
 
+export const SFX_NAMES = [
+  'slashLight',
+  'slashHeavy',
+  'slashEmpowered',
+  'hit',
+  'block',
+  'perfectGuard',
+  'dodge',
+  'enemyAttack',
+  'playerHurt',
+  'enemyDown',
+  'bossDown',
+] as const;
+
+export type SfxName = (typeof SFX_NAMES)[number];
+
 export interface AudioEngine {
   start(): Promise<void>;
   stop(): void;
   setMode(mode: AudioMode): void;
   setMuted(muted: boolean): void;
+  playSfx(name: SfxName): void;
 }
 
 type EngineFactory = () => AudioEngine;
@@ -76,6 +93,14 @@ export class AudioDirector {
     return this.muted;
   }
 
+  /** 播放一次性战斗音效。未启动或静音时静默忽略，避免无谓创建音频节点。 */
+  playSfx(name: SfxName) {
+    if (!this.started || this.muted) {
+      return;
+    }
+    this.engine?.playSfx(name);
+  }
+
   private async startEngine() {
     this.engine = this.createEngine();
     await this.engine.start();
@@ -91,6 +116,7 @@ class WebAudioEngine implements AudioEngine {
   private rainGain: GainNode | null = null;
   private droneGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
+  private sfxGain: GainNode | null = null;
   private mode: AudioMode = 'explore';
   private muted = false;
   private timers: number[] = [];
@@ -115,15 +141,18 @@ class WebAudioEngine implements AudioEngine {
     this.rainGain = this.context.createGain();
     this.droneGain = this.context.createGain();
     this.musicGain = this.context.createGain();
+    this.sfxGain = this.context.createGain();
 
     this.master.gain.value = this.muted ? 0 : 0.28;
     this.rainGain.gain.value = 0.16;
     this.droneGain.gain.value = 0.04;
     this.musicGain.gain.value = 0.11;
+    this.sfxGain.gain.value = 0.9;
 
     this.rainGain.connect(this.master);
     this.droneGain.connect(this.master);
     this.musicGain.connect(this.master);
+    this.sfxGain.connect(this.master);
     this.master.connect(this.context.destination);
 
     this.startRainNoise();
@@ -276,6 +305,122 @@ class WebAudioEngine implements AudioEngine {
     gain.connect(this.musicGain);
     osc.start(now);
     osc.stop(now + 0.34);
+  }
+
+  playSfx(name: SfxName) {
+    if (!this.context || !this.sfxGain) {
+      return;
+    }
+
+    switch (name) {
+      case 'slashLight':
+        this.sfxNoise(0.09, 'highpass', 2600, 0.7, 0.5);
+        this.sfxTone('triangle', 880, 320, 0.1, 0.18);
+        break;
+      case 'slashHeavy':
+        this.sfxNoise(0.16, 'bandpass', 1500, 0.8, 0.6);
+        this.sfxTone('sawtooth', 440, 150, 0.18, 0.22);
+        break;
+      case 'slashEmpowered':
+        this.sfxNoise(0.18, 'bandpass', 2000, 0.9, 0.55);
+        this.sfxTone('triangle', 1320, 620, 0.22, 0.2);
+        this.sfxTone('sine', 660, 990, 0.26, 0.16, 0.04);
+        break;
+      case 'hit':
+        this.sfxNoise(0.05, 'bandpass', 2400, 1.2, 0.5);
+        this.sfxTone('square', 320, 160, 0.07, 0.16);
+        break;
+      case 'block':
+        this.sfxTone('triangle', 1500, 1100, 0.06, 0.18);
+        this.sfxNoise(0.04, 'highpass', 3200, 0.8, 0.35);
+        break;
+      case 'perfectGuard':
+        this.sfxTone('sine', 988, 988, 0.45, 0.16, 0.01);
+        this.sfxTone('sine', 1318, 1318, 0.5, 0.13, 0.07);
+        break;
+      case 'dodge':
+        this.sfxNoise(0.14, 'lowpass', 900, 0.7, 0.4);
+        break;
+      case 'enemyAttack':
+        this.sfxTone('sawtooth', 196, 110, 0.18, 0.16);
+        this.sfxNoise(0.08, 'lowpass', 600, 0.6, 0.25);
+        break;
+      case 'playerHurt':
+        this.sfxTone('square', 180, 70, 0.16, 0.2);
+        this.sfxNoise(0.07, 'lowpass', 500, 0.7, 0.3);
+        break;
+      case 'enemyDown':
+        this.sfxTone('sawtooth', 300, 90, 0.32, 0.2);
+        break;
+      case 'bossDown':
+        this.sfxTone('sawtooth', 220, 55, 0.6, 0.26);
+        this.sfxNoise(0.4, 'lowpass', 700, 0.5, 0.3);
+        break;
+    }
+  }
+
+  private sfxTone(
+    type: OscillatorType,
+    freqStart: number,
+    freqEnd: number,
+    duration: number,
+    peak: number,
+    delay = 0,
+  ) {
+    if (!this.context || !this.sfxGain) {
+      return;
+    }
+
+    const when = this.context.currentTime + delay;
+    const osc = this.context.createOscillator();
+    const gain = this.context.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freqStart, when);
+    if (freqEnd !== freqStart) {
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1, freqEnd), when + duration);
+    }
+    gain.gain.setValueAtTime(0.0001, when);
+    gain.gain.exponentialRampToValueAtTime(peak, when + 0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+    osc.connect(gain);
+    gain.connect(this.sfxGain);
+    osc.start(when);
+    osc.stop(when + duration + 0.02);
+  }
+
+  private sfxNoise(
+    duration: number,
+    filterType: BiquadFilterType,
+    frequency: number,
+    q: number,
+    peak: number,
+  ) {
+    if (!this.context || !this.sfxGain) {
+      return;
+    }
+
+    const when = this.context.currentTime;
+    const bufferSize = Math.max(1, Math.floor(this.context.sampleRate * duration));
+    const buffer = this.context.createBuffer(1, bufferSize, this.context.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i += 1) {
+      data[i] = Math.random() * 2 - 1;
+    }
+
+    const source = this.context.createBufferSource();
+    const filter = this.context.createBiquadFilter();
+    const gain = this.context.createGain();
+    source.buffer = buffer;
+    filter.type = filterType;
+    filter.frequency.value = frequency;
+    filter.Q.value = q;
+    gain.gain.setValueAtTime(peak, when);
+    gain.gain.exponentialRampToValueAtTime(0.0001, when + duration);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.sfxGain);
+    source.start(when);
+    source.stop(when + duration + 0.02);
   }
 }
 

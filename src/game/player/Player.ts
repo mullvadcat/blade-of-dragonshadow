@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PlayerStateMachine } from './PlayerStateMachine';
 import type { Strike } from '../combat/CombatSystem';
+import type { SfxName } from '../audio/AudioDirector';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   readonly machine = new PlayerStateMachine();
@@ -9,9 +10,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private dodgeUntil = 0;
   private readonly keys: Record<string, Phaser.Input.Keyboard.Key>;
   private wasBlocking = false;
+  private readonly playSfx: (name: SfxName) => void;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
+  constructor(scene: Phaser.Scene, x: number, y: number, playSfx: (name: SfxName) => void = () => {}) {
     super(scene, x, y, 'player');
+    this.playSfx = playSfx;
     scene.add.existing(this);
     scene.physics.add.existing(this);
     const body = this.body as Phaser.Physics.Arcade.Body;
@@ -46,8 +49,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const blocking = this.keys.block.isDown;
 
     if (blocking && !this.machine.state.isBlocking) {
-      this.machine.startBlocking(time);
+      const raised = this.machine.startBlocking(time);
       this.playGuardFlash();
+      if (raised) {
+        this.playSfx('block');
+      }
     } else if (!blocking && this.machine.state.isBlocking) {
       this.machine.stopBlocking();
     }
@@ -57,6 +63,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       const didDodge = this.machine.tryDodge(time);
       if (didDodge) {
         this.dodgeUntil = time + 220;
+        this.playSfx('dodge');
       }
     }
 

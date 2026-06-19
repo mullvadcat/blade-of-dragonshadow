@@ -1,33 +1,36 @@
 import Phaser from 'phaser';
-import { CombatSystem, type CombatantState, type Strike } from '../combat/CombatSystem';
+import { CombatSystem, type Strike } from '../combat/CombatSystem';
 import { CombatActor } from './CombatActor';
+import type { SfxName } from '../audio/AudioDirector';
 
 export class BossWuzhen extends CombatActor {
   private phase: 'needles' | 'smoke' = 'needles';
   private aura: Phaser.GameObjects.Arc | null = null;
 
-  constructor(scene: Phaser.Scene, x: number, y: number) {
-    const combatState: CombatantState = {
-      health: 180,
-      maxHealth: 180,
-      guard: 0,
-      maxGuard: 84,
-      stamina: 70,
-      maxStamina: 70,
-      isBlocking: false,
-      perfectGuardUntil: 0,
-      invulnerableUntil: 0,
-      staggeredUntil: 0,
-    };
-
+  constructor(scene: Phaser.Scene, x: number, y: number, playSfx?: (name: SfxName) => void) {
     super(scene, x, y, {
       texture: 'boss-wuzhen',
-      combatState,
+      combatState: {
+        health: 180,
+        maxHealth: 180,
+        guard: 0,
+        maxGuard: 84,
+        stamina: 70,
+        maxStamina: 70,
+        isBlocking: false,
+        perfectGuardUntil: 0,
+        invulnerableUntil: 0,
+        staggeredUntil: 0,
+      },
       bodySize: [46, 70],
       depth: 11,
       attackRange: 86,
       hitTint: 0xff3d4f,
       hitFlashMs: 100,
+      telegraphColor: 0xff5470,
+      strikeColor: 0xff3d4f,
+      defeatSfx: 'bossDown',
+      playSfx,
       nameplate: {
         text: '乌针',
         style: {
@@ -77,11 +80,19 @@ export class BossWuzhen extends CombatActor {
     this.followUi();
   }
 
-  makeStrike(time: number): Strike {
-    this.nextAttackAt = time + (this.phase === 'smoke' ? 760 : 980);
+  protected buildStrike(): Strike {
     return this.phase === 'smoke'
       ? { ...CombatSystem.createLightStrike(), damage: 18, guardDamage: 18 }
       : { ...CombatSystem.createHeavyStrike(), damage: 22, guardDamage: 24 };
+  }
+
+  protected attackInterval(): number {
+    return this.phase === 'smoke' ? 760 : 980;
+  }
+
+  protected telegraphMs(): number {
+    // 狂暴(smoke)阶段出招更急，留给玩家的反应时间更短。
+    return this.phase === 'smoke' ? 300 : 420;
   }
 
   protected override onDefeat() {

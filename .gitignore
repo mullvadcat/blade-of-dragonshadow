@@ -17,3 +17,4 @@ npm-debug.log*
 # tooling artifacts
 .playwright-cli/
 .superpowers/
+.claude/settings.local.json

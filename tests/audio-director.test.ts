@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { AudioDirector, type AudioEngine, type AudioMode } from '../src/game/audio/AudioDirector';
+import {
+  AudioDirector,
+  type AudioEngine,
+  type AudioMode,
+  type SfxName,
+} from '../src/game/audio/AudioDirector';
 
 class FakeAudioEngine implements AudioEngine {
   startCalls = 0;
   stopCalls = 0;
   modes: AudioMode[] = [];
   mutedValues: boolean[] = [];
+  sfx: SfxName[] = [];
 
   async start() {
     this.startCalls += 1;
@@ -21,6 +27,10 @@ class FakeAudioEngine implements AudioEngine {
 
   setMuted(muted: boolean) {
     this.mutedValues.push(muted);
+  }
+
+  playSfx(name: SfxName) {
+    this.sfx.push(name);
   }
 }
 
@@ -62,6 +72,21 @@ describe('AudioDirector', () => {
     const director = new AudioDirector(() => new FakeAudioEngine());
 
     expect(() => director.setMode('silent' as AudioMode)).toThrow('Unsupported audio mode');
+  });
+
+  it('forwards sfx to the engine only when started and unmuted', async () => {
+    const engine = new FakeAudioEngine();
+    const director = new AudioDirector(() => engine);
+
+    // Not started yet → ignored.
+    director.playSfx('hit');
+    await director.start();
+    director.playSfx('slashLight');
+
+    director.setMuted(true);
+    director.playSfx('hit'); // muted → ignored.
+
+    expect(engine.sfx).toEqual(['slashLight']);
   });
 
   it('does not start more than one audio loop', async () => {
