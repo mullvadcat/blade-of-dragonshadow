@@ -1,10 +1,12 @@
 import Phaser from 'phaser';
 import { PlayerStateMachine } from './PlayerStateMachine';
+import { MoralState } from '../moral/MoralState';
 import type { Strike } from '../combat/CombatSystem';
 import type { SfxName } from '../audio/AudioDirector';
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   readonly machine = new PlayerStateMachine();
+  readonly moral = new MoralState();
   facing: -1 | 1 = 1;
   private attackCooldownUntil = 0;
   private dodgeUntil = 0;
@@ -12,7 +14,12 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private wasBlocking = false;
   private readonly playSfx: (name: SfxName) => void;
 
-  constructor(scene: Phaser.Scene, x: number, y: number, playSfx: (name: SfxName) => void = () => {}) {
+  constructor(
+    scene: Phaser.Scene,
+    x: number,
+    y: number,
+    playSfx: (name: SfxName) => void = () => {},
+  ) {
     super(scene, x, y, 'player');
     this.playSfx = playSfx;
     scene.add.existing(this);
@@ -95,6 +102,24 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       return null;
     }
 
+    // 游龙回身派生：闪避后窗口内按轻/重攻击键 → 返回游龙回身标记 Strike。
+    // 注意：此处不消费闪避后窗口——窗口由 CombatDirector 在释放成功后消费，
+    // 避免龙魂不足时窗口被白白消耗且无反馈。
+    if (this.machine.isInDodgeCounterWindow(time)) {
+      const pressedLight = Phaser.Input.Keyboard.JustDown(this.keys.light);
+      const pressedHeavy = Phaser.Input.Keyboard.JustDown(this.keys.heavy);
+      if (pressedLight || pressedHeavy) {
+        // 返回带标记的 Strike：staminaDamage=-1 作为游龙回身派生信号（CombatDirector 识别）
+        return {
+          damage: 0,
+          guardDamage: 0,
+          staminaDamage: -1,
+          blockDamageMultiplier: 0,
+          staggerDuration: 0,
+        };
+      }
+    }
+
     if (Phaser.Input.Keyboard.JustDown(this.keys.light)) {
       const strike = this.machine.tryLightAttack(time);
       if (strike) {
@@ -122,6 +147,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
 
     return Phaser.Input.Keyboard.JustDown(this.keys.interact);
+  }
+
+  /** 公开的攻击缩放反馈，供 CombatDirector 在技能释放时调用（如游龙回身）。 */
+  feedbackAttack(isHeavy: boolean) {
+    this.playAttackFeedback(isHeavy);
   }
 
   private playAttackFeedback(isHeavy: boolean) {

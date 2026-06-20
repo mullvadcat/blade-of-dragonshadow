@@ -91,4 +91,69 @@ describe('PlayerStateMachine', () => {
     expect(player.state.staggeredUntil).toBe(0);
     expect(player.isDead()).toBe(false);
   });
+
+  it('accumulates soul up to maxSoul', () => {
+    const player = new PlayerStateMachine({ soul: 0, maxSoul: 100 });
+
+    player.addSoul(30);
+    expect(player.state.soul).toBe(30);
+
+    player.addSoul(200);
+    expect(player.state.soul).toBe(100);
+  });
+
+  it('spends soul only when enough is available', () => {
+    const player = new PlayerStateMachine({ soul: 20, maxSoul: 100 });
+
+    expect(player.spendSoul(25)).toBe(false);
+    expect(player.state.soul).toBe(20);
+
+    expect(player.spendSoul(15)).toBe(true);
+    expect(player.state.soul).toBe(5);
+  });
+
+  it('does not accumulate or spend soul when dead', () => {
+    const player = new PlayerStateMachine({ health: 0, soul: 10, maxSoul: 100 });
+
+    expect(player.isDead()).toBe(true);
+    // addSoul 仍允许（复活场景外不常见，但逻辑上积累不致死）
+    player.addSoul(5);
+    expect(player.state.soul).toBe(15);
+    // spendSoul 仍按数值判定（死亡状态由调用方拦截释放）
+    expect(player.spendSoul(20)).toBe(false);
+  });
+
+  it('resets soul to zero', () => {
+    const player = new PlayerStateMachine({ soul: 50, maxSoul: 100 });
+
+    player.reset();
+
+    expect(player.state.soul).toBe(0);
+  });
+
+  it('grants a dodge counter window after dodging for dragon-return derivation', () => {
+    const player = new PlayerStateMachine({ stamina: 40 });
+
+    player.tryDodge(1000);
+
+    expect(player.isInDodgeCounterWindow(1100)).toBe(true);
+    expect(player.isInDodgeCounterWindow(1500)).toBe(false);
+  });
+
+  it('consumeDodgeCounterWindow returns true only within window and once', () => {
+    const player = new PlayerStateMachine({ stamina: 40 });
+    player.tryDodge(1000);
+
+    expect(player.consumeDodgeCounterWindow(1100)).toBe(true);
+    expect(player.consumeDodgeCounterWindow(1100)).toBe(false);
+  });
+
+  it('reset clears dodge counter window', () => {
+    const player = new PlayerStateMachine({ stamina: 40 });
+    player.tryDodge(1000);
+
+    player.reset();
+
+    expect(player.isInDodgeCounterWindow(1100)).toBe(false);
+  });
 });

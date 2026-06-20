@@ -1,0 +1,6 @@
+dist/
+node_modules/
+.playwright-cli/
+.superpowers/
+*.tsbuildinfo
+package-lock.json

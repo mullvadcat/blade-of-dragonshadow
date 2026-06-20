@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 import { CombatSystem, type CombatantState, type Strike } from '../combat/CombatSystem';
 import { CombatActor } from './CombatActor';
 import type { SfxName } from '../audio/AudioDirector';
@@ -22,6 +22,8 @@ export class Enemy extends CombatActor {
       maxGuard: kind === 'scout' ? 42 : 54,
       stamina: 30,
       maxStamina: 30,
+      soul: 0,
+      maxSoul: 0,
       isBlocking: false,
       perfectGuardUntil: 0,
       invulnerableUntil: 0,

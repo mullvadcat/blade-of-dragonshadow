@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 import { CombatSystem, type Strike } from '../combat/CombatSystem';
 import { CombatActor } from './CombatActor';
 import type { SfxName } from '../audio/AudioDirector';
@@ -17,6 +17,8 @@ export class BossWuzhen extends CombatActor {
         maxGuard: 84,
         stamina: 70,
         maxStamina: 70,
+        soul: 0,
+        maxSoul: 0,
         isBlocking: false,
         perfectGuardUntil: 0,
         invulnerableUntil: 0,
@@ -60,8 +62,7 @@ export class BossWuzhen extends CombatActor {
       return;
     }
 
-    this.phase =
-      this.combatState.health < this.combatState.maxHealth * 0.48 ? 'smoke' : 'needles';
+    this.phase = this.combatState.health < this.combatState.maxHealth * 0.48 ? 'smoke' : 'needles';
     this.chase(time, playerX, this.phase === 'smoke' ? 128 : 92, 74, 460);
 
     if (this.phase === 'smoke') {

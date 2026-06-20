@@ -5,9 +5,13 @@ export type PlayerStateOptions = Partial<CombatantState>;
 /** 举盾瞬间的完美格挡（听风断影）判定窗口。放宽以让格挡更从容。 */
 export const PERFECT_GUARD_WINDOW_MS = 300;
 
+/** 闪避后可派生"游龙回身"的窗口时长。 */
+export const DODGE_COUNTER_WINDOW_MS = 400;
+
 export class PlayerStateMachine {
   readonly state: CombatantState;
   private counterWindowUntil = 0;
+  private dodgeCounterWindowUntil = 0;
 
   constructor(options: PlayerStateOptions = {}) {
     this.state = {
@@ -17,12 +21,28 @@ export class PlayerStateMachine {
       maxGuard: 60,
       stamina: 60,
       maxStamina: 60,
+      soul: 100,
+      maxSoul: 100,
       isBlocking: false,
       perfectGuardUntil: 0,
       invulnerableUntil: 0,
       staggeredUntil: 0,
       ...options,
     };
+  }
+
+  /** 积累龙魂（战斗命中、完美格挡、击败精英）。clamp 到 maxSoul。 */
+  addSoul(amount: number) {
+    this.state.soul = Math.min(this.state.maxSoul, this.state.soul + Math.max(0, amount));
+  }
+
+  /** 消耗龙魂释放刀气/九斩。不足返回 false，足则扣除并返回 true。 */
+  spendSoul(amount: number): boolean {
+    if (this.state.soul < amount) {
+      return false;
+    }
+    this.state.soul -= amount;
+    return true;
   }
 
   tryDodge(now: number) {
@@ -32,6 +52,7 @@ export class PlayerStateMachine {
 
     this.state.stamina -= 18;
     this.state.invulnerableUntil = now + 220;
+    this.dodgeCounterWindowUntil = now + DODGE_COUNTER_WINDOW_MS;
     return true;
   }
 
@@ -82,6 +103,20 @@ export class PlayerStateMachine {
     return false;
   }
 
+  /** 当前是否处于闪避后派生窗口（游龙回身可用）。 */
+  isInDodgeCounterWindow(now: number): boolean {
+    return now < this.dodgeCounterWindowUntil;
+  }
+
+  /** 消费闪避后派生窗口；窗口内返回 true 并清零，否则 false。 */
+  consumeDodgeCounterWindow(now: number): boolean {
+    if (now < this.dodgeCounterWindowUntil) {
+      this.dodgeCounterWindowUntil = 0;
+      return true;
+    }
+    return false;
+  }
+
   recoverStamina(amount: number) {
     if (this.isDead()) {
       return;
@@ -109,11 +144,13 @@ export class PlayerStateMachine {
     this.state.health = this.state.maxHealth;
     this.state.stamina = this.state.maxStamina;
     this.state.guard = 0;
+    this.state.soul = 0;
     this.state.isBlocking = false;
     this.state.perfectGuardUntil = 0;
     this.state.invulnerableUntil = 0;
     this.state.staggeredUntil = 0;
     this.counterWindowUntil = 0;
+    this.dodgeCounterWindowUntil = 0;
   }
 
   isDead() {

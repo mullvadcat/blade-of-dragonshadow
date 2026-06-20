@@ -1,5 +1,10 @@
 import Phaser from 'phaser';
-import { CombatSystem, type CombatantState, type Strike, type StrikeResult } from '../combat/CombatSystem';
+import {
+  CombatSystem,
+  type CombatantState,
+  type Strike,
+  type StrikeResult,
+} from '../combat/CombatSystem';
 import { HealthBar, type HealthBarOptions } from '../ui/HealthBar';
 import type { SfxName } from '../audio/AudioDirector';
 
@@ -182,8 +187,19 @@ export abstract class CombatActor extends Phaser.Physics.Arcade.Sprite {
   /** 子类可覆写以清理额外的视觉对象（如 Boss 光环）。 */
   protected onDefeat() {}
 
+  private clearTelegraphGfx() {
+    if (this.telegraphGfx) {
+      this.scene.tweens.killTweensOf(this.telegraphGfx);
+      this.telegraphGfx.destroy();
+      this.telegraphGfx = null;
+    }
+  }
+
   private showTelegraph() {
-    this.cancelTelegraph();
+    // 只清理上一个未完成的预警图形，不能动 windupUntil——
+    // 此处调用时 advanceAttack 刚把 windupUntil 设好，若用 cancelTelegraph()
+    // 会被其首行的 this.windupUntil = 0 清掉，导致敌人永远进不了落招阶段。
+    this.clearTelegraphGfx();
     const ring = this.scene.add
       .circle(this.x + this.telegraphDir * 26, this.y - 8, 26, this.telegraphColor, 0)
       .setStrokeStyle(3, this.telegraphColor, 0.95)
@@ -220,11 +236,7 @@ export abstract class CombatActor extends Phaser.Physics.Arcade.Sprite {
 
   private cancelTelegraph() {
     this.windupUntil = 0;
-    if (this.telegraphGfx) {
-      this.scene.tweens.killTweensOf(this.telegraphGfx);
-      this.telegraphGfx.destroy();
-      this.telegraphGfx = null;
-    }
+    this.clearTelegraphGfx();
   }
 
   private defeat() {

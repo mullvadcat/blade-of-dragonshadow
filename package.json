@@ -8,14 +8,23 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "phaser": "^3.90.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "eslint": "^10.5.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.4",
     "typescript": "^5.8.3",
+    "typescript-eslint": "^8.61.1",
     "vite": "^6.3.5",
     "vitest": "^3.2.4"
   }

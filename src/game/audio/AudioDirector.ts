@@ -6,6 +6,7 @@ export const SFX_NAMES = [
   'slashLight',
   'slashHeavy',
   'slashEmpowered',
+  'skillCast',
   'hit',
   'block',
   'perfectGuard',
@@ -183,13 +184,18 @@ class WebAudioEngine implements AudioEngine {
 
     const now = this.context.currentTime;
     const rain = mode === 'gameOver' ? 0.045 : mode === 'ending' ? 0.09 : 0.16;
-    const drone = mode === 'boss' ? 0.12 : mode === 'combat' ? 0.09 : mode === 'ending' ? 0.05 : 0.06;
+    const drone =
+      mode === 'boss' ? 0.12 : mode === 'combat' ? 0.09 : mode === 'ending' ? 0.05 : 0.06;
     const music =
-      mode === 'gameOver' ? 0.12 :
-      mode === 'boss' ? 0.8 :
-      mode === 'combat' ? 0.7 :
-      mode === 'ending' ? 0.45 :
-      0.55;
+      mode === 'gameOver'
+        ? 0.12
+        : mode === 'boss'
+          ? 0.8
+          : mode === 'combat'
+            ? 0.7
+            : mode === 'ending'
+              ? 0.45
+              : 0.55;
 
     this.rainGain.gain.cancelScheduledValues(now);
     this.droneGain.gain.cancelScheduledValues(now);
@@ -333,6 +339,12 @@ class WebAudioEngine implements AudioEngine {
         this.sfxNoise(0.18, 'bandpass', 2000, 0.9, 0.55);
         this.sfxTone('triangle', 1320, 620, 0.22, 0.2);
         this.sfxTone('sine', 660, 990, 0.26, 0.16, 0.04);
+        break;
+      case 'skillCast':
+        // 龙吟感：低频 sine 上扬 + 带通噪声余韵，区别于普攻的短促
+        this.sfxTone('sine', 220, 880, 0.28, 0.18, 0.02);
+        this.sfxTone('triangle', 440, 1320, 0.32, 0.12, 0.06);
+        this.sfxNoise(0.14, 'bandpass', 1800, 0.6, 0.4);
         break;
       case 'hit':
         this.sfxNoise(0.05, 'bandpass', 2400, 1.2, 0.5);

@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  CombatSystem,
-  type CombatantState,
-  type Strike,
-} from '../src/game/combat/CombatSystem';
+import { CombatSystem, type CombatantState, type Strike } from '../src/game/combat/CombatSystem';
 
 const makeTarget = (overrides: Partial<CombatantState> = {}): CombatantState => ({
   health: 100,
@@ -12,6 +8,8 @@ const makeTarget = (overrides: Partial<CombatantState> = {}): CombatantState => 
   maxGuard: 60,
   stamina: 40,
   maxStamina: 40,
+  soul: 0,
+  maxSoul: 100,
   isBlocking: false,
   perfectGuardUntil: 0,
   invulnerableUntil: 0,
@@ -65,5 +63,24 @@ describe('CombatSystem', () => {
     expect(result.damageDealt).toBe(0);
     expect(result.target.health).toBe(100);
     expect(result.counterWindowUntil).toBe(1280);
+  });
+
+  it('creates a blade aura strike with ranged-combat stats', () => {
+    const strike = CombatSystem.createBladeAuraStrike();
+
+    expect(strike.damage).toBe(18);
+    expect(strike.staminaDamage).toBe(0);
+    expect(strike.damage).toBeGreaterThan(CombatSystem.createLightStrike().damage);
+    expect(CombatSystem.BLADE_AURA_SOUL_COST).toBeGreaterThan(0);
+  });
+
+  it('applies blade aura damage to an unguarded target', () => {
+    const target = makeTarget();
+    const strike = CombatSystem.createBladeAuraStrike();
+
+    const result = CombatSystem.resolveStrike(strike, target, 1000);
+
+    expect(result.damageDealt).toBe(18);
+    expect(result.target.health).toBe(82);
   });
 });

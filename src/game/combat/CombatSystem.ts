@@ -5,6 +5,9 @@ export type CombatantState = {
   maxGuard: number;
   stamina: number;
   maxStamina: number;
+  /** 龙魂值：玩家侧能量池，用于刀气与龙影九斩；敌人侧留 0。 */
+  soul: number;
+  maxSoul: number;
   isBlocking: boolean;
   perfectGuardUntil: number;
   invulnerableUntil: number;
@@ -28,8 +31,7 @@ export type StrikeResult = {
   counterWindowUntil: number | null;
 };
 
-const clamp = (value: number, min: number, max: number) =>
-  Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 export class CombatSystem {
   static createLightStrike(): Strike {
@@ -52,11 +54,21 @@ export class CombatSystem {
     };
   }
 
-  static resolveStrike(
-    strike: Strike,
-    target: CombatantState,
-    now: number,
-  ): StrikeResult {
+  /** 刀气（远程斩击）：直线飞行，消耗龙魂，破邪术/远程压制。伤害介于轻斩与重斩之间。 */
+  static createBladeAuraStrike(): Strike {
+    return {
+      damage: 18,
+      guardDamage: 20,
+      staminaDamage: 0,
+      blockDamageMultiplier: 0.5,
+      staggerDuration: 240,
+    };
+  }
+
+  /** 释放刀气所需龙魂。 */
+  static readonly BLADE_AURA_SOUL_COST = 25;
+
+  static resolveStrike(strike: Strike, target: CombatantState, now: number): StrikeResult {
     const nextTarget = { ...target };
 
     if (now < nextTarget.invulnerableUntil) {
@@ -93,11 +105,7 @@ export class CombatSystem {
     const guardDamageDealt = strike.guardDamage;
 
     nextTarget.health = clamp(nextTarget.health - damageDealt, 0, nextTarget.maxHealth);
-    nextTarget.guard = clamp(
-      nextTarget.guard + guardDamageDealt,
-      0,
-      nextTarget.maxGuard,
-    );
+    nextTarget.guard = clamp(nextTarget.guard + guardDamageDealt, 0, nextTarget.maxGuard);
 
     if (nextTarget.isBlocking) {
       nextTarget.stamina = clamp(
