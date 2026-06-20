@@ -23,6 +23,8 @@ export type SkillCastResult = {
   guardReduceUntil: number | null;
   /** 守护形态减伤比例（如 0.3 表示减伤30%）；0 表示无减伤。供 CombatDirector 从结果读取，避免硬编码。 */
   guardReduceRatio: number;
+  /** 狂暴形态：本次释放是否波及盟友。供 CombatDirector 做误伤判定。 */
+  hitsAllies: boolean;
   /** 本次释放所用的形态修饰。 */
   form: SkillFormModifier;
 };
@@ -105,6 +107,7 @@ export class SkillSystem {
       selfHarm,
       guardReduceUntil,
       guardReduceRatio,
+      hitsAllies: form.hitsAllies ?? false,
       form,
     };
   }

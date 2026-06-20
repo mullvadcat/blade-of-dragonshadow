@@ -13,12 +13,14 @@ export type SkillFormModifier = {
   selfHarmRatio?: number;
   /** 守护形态：释放后减伤持续时间(ms)与减伤比例。 */
   guardReduceUntil?: { durationMs: number; ratio: number };
+  /** 狂暴形态：大范围技能是否波及盟友（村民 NPC）。仅 wrath 为 true。 */
+  hitsAllies?: boolean;
 };
 
 /** 形态修饰表：tendency → 该形态的数值调整。 */
 export const SKILL_FORM_MODIFIERS: Record<MoralTendency, SkillFormModifier> = {
   balance: { damageMultiplier: 1, rangeMultiplier: 1 },
-  wrath: { damageMultiplier: 1.4, rangeMultiplier: 1.3, selfHarmRatio: 0.08 },
+  wrath: { damageMultiplier: 1.4, rangeMultiplier: 1.3, selfHarmRatio: 0.08, hitsAllies: true },
   guard: {
     damageMultiplier: 1,
     rangeMultiplier: 0.8,
