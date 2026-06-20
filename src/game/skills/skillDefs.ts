@@ -93,6 +93,3 @@ export const SKILL_DEFS: Record<SkillId, SkillDef> = {
 
 /** 游龙回身派生窗口：闪避成功后可派生的时间(ms)。单一来源：PlayerStateMachine。 */
 export { DODGE_COUNTER_WINDOW_MS };
-
-/** 守护形态减伤增益的 key（供 PlayerStateMachine 记录减伤窗口结束时间）。 */
-export const GUARD_FORM_REDUCE_KEY = 'guardFormReduceUntil';

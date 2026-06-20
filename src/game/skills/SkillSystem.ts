@@ -64,7 +64,7 @@ export class SkillSystem {
     return Math.max(0, this.lastCastAt[id] + def.cooldownMs - now);
   }
 
-  /** 记录一次释放（用于游龙回身派生等外部触发场景，跳过龙魂/冷却检查）。 */
+  /** 记录一次释放（跳过龙魂/冷却检查）。tryRelease 内部调用；测试亦用其构造冷却场景。 */
   recordCast(id: SkillId, now: number) {
     this.lastCastAt[id] = now;
   }

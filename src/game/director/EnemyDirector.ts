@@ -85,10 +85,4 @@ export class EnemyDirector {
         Math.abs(enemy.y - playerY) < radiusY,
     );
   }
-
-  /** 重开时清空所有敌人与 Boss。 */
-  reset() {
-    this.enemies.length = 0;
-    this.boss = null;
-  }
 }
