@@ -9,7 +9,7 @@ import type { EnemyDirector } from './EnemyDirector';
 import type { Hud } from '../ui/Hud';
 import type { SfxName } from '../audio/AudioDirector';
 import { isAllyWithinRange } from '../entities/allyCasualty';
-import type { StoryFlags } from '../story/StoryFlags';
+import { isMeleeHittable } from '../entities/meleeTarget';
 import type { Npc } from '../entities/Npc';
 
 /**
@@ -37,7 +37,6 @@ export class CombatDirector {
     private readonly enemies: EnemyDirector,
     private readonly hud: Hud,
     sfx: (name: SfxName) => void,
-    private readonly story: StoryFlags,
     private readonly npcs: readonly Npc[],
     onBossDefeated: () => void,
   ) {
@@ -65,44 +64,63 @@ export class CombatDirector {
     this.sfx(empowered ? 'slashEmpowered' : strike.damage >= 24 ? 'slashHeavy' : 'slashLight');
     this.showSlash(empowered);
 
+    if (this.resolveMeleeHit(finalStrike, 92, 112, time)) {
+      this.sfx('hit');
+    }
+  }
+
+  /**
+   * 近战命中结算：对范围内的活跃敌人与 Boss 应用 strike，处理龙魂 / 戾气奖励与击杀回调。
+   * 求饶中的敌人不结算（其处置统一走 FlowController 的求饶对话，避免被 AoE 无声击杀）。
+   * @param enemyRange 小怪命中横向半径（技能形态会传入按 rangeMultiplier 缩放后的值）
+   * @param bossRange Boss 命中横向半径（同上）
+   * @returns 是否至少命中一个目标（用于命中音效）
+   */
+  private resolveMeleeHit(
+    strike: Strike,
+    enemyRange: number,
+    bossRange: number,
+    time: number,
+  ): boolean {
     let landed = false;
     for (const enemy of this.enemies.activeEnemies) {
       if (
-        enemy.active &&
-        Math.abs(enemy.x - this.player.x) < 92 &&
-        Math.abs(enemy.y - this.player.y) < 86
+        !isMeleeHittable(
+          enemy.active,
+          enemy.isSurrendered,
+          enemy.x,
+          enemy.y,
+          this.player.x,
+          this.player.y,
+          enemyRange,
+          86,
+        )
       ) {
-        enemy.receiveStrike(finalStrike, time);
-        landed = true;
-        this.player.machine.addSoul(3);
-        if (!enemy.active) {
-          this.player.machine.addSoul(5);
-          this.player.moral.addLiqi(10);
-          if (enemy.kind === 'scout' && enemy.isSurrendered) {
-            this.story.recordChoice('killedScout');
-            this.player.moral.addLiqi(20);
-            this.hud.showSubtitle('求饶的探子死在你的刀下。');
-          }
-        }
+        continue;
+      }
+      enemy.receiveStrike(strike, time);
+      landed = true;
+      this.player.machine.addSoul(3);
+      if (!enemy.active) {
+        this.player.machine.addSoul(5);
+        this.player.moral.addLiqi(10);
       }
     }
 
     const boss = this.enemies.activeBoss;
     if (
       boss?.active &&
-      Math.abs(boss.x - this.player.x) < 112 &&
+      Math.abs(boss.x - this.player.x) < bossRange &&
       Math.abs(boss.y - this.player.y) < 94
     ) {
-      boss.receiveStrike(finalStrike, time);
+      boss.receiveStrike(strike, time);
       landed = true;
       if (!boss.active) {
         this.onBossDefeated();
       }
     }
 
-    if (landed) {
-      this.sfx('hit');
-    }
+    return landed;
   }
 
   /**
@@ -134,7 +152,10 @@ export class CombatDirector {
   }
 
   private releaseBladeAura(_time: number) {
-    const targets: CombatActor[] = [...this.enemies.activeEnemies];
+    // 求饶者不被刀气结算（统一走求饶对话处置）。
+    const targets: CombatActor[] = this.enemies.activeEnemies.filter(
+      (enemy) => !enemy.isSurrendered,
+    );
     const boss = this.enemies.activeBoss;
     if (boss?.active) {
       targets.push(boss);
@@ -253,41 +274,8 @@ export class CombatDirector {
     // 命中判定：按形态 rangeMultiplier 调整范围
     const baseRange = 92;
     const range = Math.round(baseRange * cast.rangeMultiplier);
-    let landed = false;
-    for (const enemy of this.enemies.activeEnemies) {
-      if (
-        enemy.active &&
-        Math.abs(enemy.x - this.player.x) < range &&
-        Math.abs(enemy.y - this.player.y) < 86
-      ) {
-        enemy.receiveStrike(cast.strike, time);
-        landed = true;
-        this.player.machine.addSoul(3);
-        if (!enemy.active) {
-          this.player.machine.addSoul(5);
-          this.player.moral.addLiqi(10);
-          if (enemy.kind === 'scout' && enemy.isSurrendered) {
-            this.story.recordChoice('killedScout');
-            this.player.moral.addLiqi(20);
-            this.hud.showSubtitle('求饶的探子死在你的刀下。');
-          }
-        }
-      }
-    }
-    const boss = this.enemies.activeBoss;
-    if (
-      boss?.active &&
-      Math.abs(boss.x - this.player.x) < Math.round(112 * cast.rangeMultiplier) &&
-      Math.abs(boss.y - this.player.y) < 94
-    ) {
-      boss.receiveStrike(cast.strike, time);
-      landed = true;
-      if (!boss.active) {
-        this.onBossDefeated();
-      }
-    }
-
-    if (landed) {
+    const bossRange = Math.round(112 * cast.rangeMultiplier);
+    if (this.resolveMeleeHit(cast.strike, range, bossRange, time)) {
       this.sfx('hit');
     }
 
