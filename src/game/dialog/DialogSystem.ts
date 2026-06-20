@@ -67,6 +67,11 @@ export class DialogSystem {
     this.actions.set(name, handler);
   }
 
+  /** 触发求饶对话前设置求饶目标（写入 context.surrenderEnemy）。 */
+  setSurrenderTarget(target: SurrenderTarget | null) {
+    this.context.surrenderEnemy = target;
+  }
+
   start(def: DialogDef) {
     this.def = def;
     this.currentNodeId = def.startNode;
