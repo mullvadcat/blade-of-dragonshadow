@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { ClueId } from '../story/StoryFlags';
 import { createCharacterTextures } from '../art/CharacterArt';
+import { Npc } from '../entities/Npc';
 
 export type InvestigationPoint = {
   x: number;
@@ -87,7 +88,7 @@ export class WorldBuilder {
     return ground;
   }
 
-  /** 创建四个调查点并赋予静态物理体。返回的点同时存于 this.points。 */
+  /** 创建三个调查点并赋予静态物理体。返回的点同时存于 this.points。 */
   createInvestigationPoints(): InvestigationPoint[] {
     this.points.length = 0;
     this.points.push(
@@ -118,21 +119,26 @@ export class WorldBuilder {
         object: this.scene.add.zone(1590, 590, 110, 96),
         marker: this.addMarker(1590, 536, '鞘'),
       },
-      {
-        x: 1990,
-        y: 590,
-        label: '沉默村民',
-        clue: 'threatenedVillagers',
-        text: '老人避开你的眼睛，只说那夜所有灯都被人逼着熄了。',
-        object: this.scene.add.zone(1990, 590, 120, 96),
-        marker: this.addMarker(1990, 536, '证'),
-      },
     );
 
     for (const point of this.points) {
       this.scene.physics.add.existing(point.object, true);
     }
     return this.points;
+  }
+
+  /** 创建村民 NPC：第四线索"沉默村民"（揭示 threatenedVillagers）+ 1 个氛围村民。 */
+  createNpcs(): Npc[] {
+    const npcs: Npc[] = [
+      new Npc(this.scene, 1990, 590, { dialogId: 'villager', name: '沉默村民' }),
+      new Npc(this.scene, 620, 605, { dialogId: 'ambientVillager', name: '老村民' }),
+    ];
+    // Npc 构造内已 scene.physics.add.existing；此处只设不可推动
+    for (const npc of npcs) {
+      const body = npc.body as Phaser.Physics.Arcade.Body;
+      body.setImmovable(true);
+    }
+    return npcs;
   }
 
   private addZoneLabel(x: number, label: string) {

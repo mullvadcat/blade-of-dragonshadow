@@ -8,6 +8,9 @@ import { EnemyDirector } from './director/EnemyDirector';
 import { CombatDirector } from './director/CombatDirector';
 import { AudioController } from './director/AudioController';
 import { FlowController } from './flow/FlowController';
+import { DialogSystem, type DialogContext } from './dialog/DialogSystem';
+import { DialogUi } from './dialog/DialogUi';
+import type { Npc } from './entities/Npc';
 
 /**
  * 第一章·雨夜疑案 主场景。
@@ -29,6 +32,9 @@ export class GameScene extends Phaser.Scene {
   private combatDirector!: CombatDirector;
   private audioController!: AudioController;
   private flow!: FlowController;
+  private dialogSystem!: DialogSystem;
+  private dialogUi!: DialogUi;
+  private npcs: Npc[] = [];
 
   constructor() {
     super('GameScene');
@@ -60,6 +66,7 @@ export class GameScene extends Phaser.Scene {
     this.world.drawWorld();
     const ground = this.world.buildPlatforms();
     const points = this.world.createInvestigationPoints();
+    this.npcs = this.world.createNpcs();
 
     // 玩家与输入。
     this.player = new Player(this, 130, 560, this.sfx);
@@ -73,7 +80,27 @@ export class GameScene extends Phaser.Scene {
     this.enemyDirector.createEnemies();
 
     this.hud = new Hud(this);
-    this.flow = new FlowController(this, this.player, this.hud, this.story, this.enemyDirector, this.audioDirector, points);
+
+    const dialogContext: DialogContext = {
+      moral: this.player.moral,
+      story: this.story,
+      surrenderEnemy: null,
+      rewardSoul: (amount) => this.player.machine.addSoul(amount),
+    };
+    this.dialogSystem = new DialogSystem(dialogContext);
+    this.dialogUi = new DialogUi(this, this.dialogSystem);
+
+    this.flow = new FlowController(
+      this,
+      this.player,
+      this.hud,
+      this.story,
+      this.enemyDirector,
+      this.audioDirector,
+      points,
+      this.npcs,
+      this.dialogSystem,
+    );
     this.combatDirector = new CombatDirector(
       this,
       this.player,
@@ -113,6 +140,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   update(time: number) {
+    // 对话进行时：冻结世界，只处理对话输入与 UI
+    if (this.dialogSystem.isActive) {
+      this.flow.handleDialogInput();
+      this.dialogUi.update();
+      return;
+    }
+
     this.player.update(time, this.cursors);
     this.hud.update(this.player, this.story, time, this.combatDirector.skillState);
     this.audioController.update();
@@ -125,6 +159,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    this.flow.handleNpcDialog();
+    this.flow.handleSurrender();
     this.flow.handleInvestigation();
     this.flow.handleStudyGate();
 
@@ -152,6 +188,10 @@ export class GameScene extends Phaser.Scene {
     const bossStrike = this.enemyDirector.advanceBoss(time, this.player.x);
     if (bossStrike && !this.flow.endingStarted && !this.flow.gameOverStarted) {
       this.combatDirector.applyEnemyStrike(bossStrike, time);
+    }
+
+    for (const npc of this.npcs) {
+      npc.update();
     }
   }
 }

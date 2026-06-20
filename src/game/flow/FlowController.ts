@@ -5,6 +5,11 @@ import type { StoryFlags } from '../story/StoryFlags';
 import type { EnemyDirector } from '../director/EnemyDirector';
 import type { AudioDirector } from '../audio/AudioDirector';
 import type { InvestigationPoint } from '../world/WorldBuilder';
+import { VILLAGER_DIALOG, SCOUT_SURRENDER_DIALOG, AMBIENT_VILLAGER_DIALOG } from '../dialog/dialogDefs';
+import { endingMoralSuffix } from './endingMoralSuffix';
+import type { DialogSystem } from '../dialog/DialogSystem';
+import type { Npc } from '../entities/Npc';
+import type { DialogDef } from '../dialog/dialogDefs';
 
 /**
  * 第一章流程控制：调查取证、书房暗门、死亡结算、胜利结局。
@@ -17,6 +22,13 @@ export class FlowController {
   chamberOpened = false;
 
   private readonly restartKey: Phaser.Input.Keyboard.Key;
+  private readonly npcs: Npc[];
+  private readonly dialog: DialogSystem;
+  private readonly dialogUp: Phaser.Input.Keyboard.Key;
+  private readonly dialogDown: Phaser.Input.Keyboard.Key;
+  private readonly dialogConfirm: Phaser.Input.Keyboard.Key;
+  private readonly dialogClose: Phaser.Input.Keyboard.Key;
+  private readonly dialogDefsById: Record<string, DialogDef>;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -26,8 +38,111 @@ export class FlowController {
     private readonly enemies: EnemyDirector,
     private readonly audioDirector: AudioDirector,
     private readonly points: InvestigationPoint[],
+    npcs: Npc[],
+    dialog: DialogSystem,
   ) {
     this.restartKey = scene.input.keyboard!.addKey('R');
+    this.npcs = npcs;
+    this.dialog = dialog;
+    this.dialogUp = scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP);
+    this.dialogDown = scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.DOWN);
+    this.dialogConfirm = scene.input.keyboard!.addKey('E');
+    this.dialogClose = scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    this.dialogDefsById = {
+      [VILLAGER_DIALOG.id]: VILLAGER_DIALOG,
+      [SCOUT_SURRENDER_DIALOG.id]: SCOUT_SURRENDER_DIALOG,
+      [AMBIENT_VILLAGER_DIALOG.id]: AMBIENT_VILLAGER_DIALOG,
+    };
+
+    this.registerDialogActions();
+  }
+
+  private registerDialogActions() {
+    this.dialog.registerAction('revealThreatenedClue', (ctx) => {
+      ctx.story.discoverClue('threatenedVillagers');
+      for (const npc of this.npcs) {
+        if (npc.dialogId === 'villager') {
+          npc.markTalked();
+        }
+      }
+    });
+
+    this.dialog.registerAction('spareScout', (ctx) => {
+      ctx.moral.addShouxin(15);
+      ctx.story.recordChoice('sparedScout');
+      ctx.surrenderEnemy?.escape();
+    });
+
+    this.dialog.registerAction('executeScout', (ctx) => {
+      ctx.moral.addLiqi(20);
+      ctx.story.recordChoice('killedScout');
+      ctx.surrenderEnemy?.execute();
+      ctx.rewardSoul(8);
+    });
+  }
+
+  /** 对话进行时：处理选项导航/确认/关闭输入。返回是否正在对话中。 */
+  handleDialogInput(): boolean {
+    if (!this.dialog.isActive) {
+      return false;
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.dialogUp)) {
+      this.dialog.handleInput('up');
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.dialogDown)) {
+      this.dialog.handleInput('down');
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.dialogConfirm)) {
+      this.dialog.handleInput('confirm');
+    }
+    if (Phaser.Input.Keyboard.JustDown(this.dialogClose)) {
+      this.dialog.handleInput('close');
+    }
+    return true;
+  }
+
+  /** 每帧：检测玩家是否靠近 NPC 并按 E 触发对话。 */
+  handleNpcDialog() {
+    if (this.dialog.isActive) {
+      return;
+    }
+    for (const npc of this.npcs) {
+      if (!npc.active) {
+        continue;
+      }
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, npc.x, npc.y);
+      if (dist < 86) {
+        this.hud.showPrompt('E 对话');
+        if (this.player.wantsInteract()) {
+          const def = this.dialogDefsById[npc.dialogId];
+          if (def) {
+            this.dialog.start(def);
+          }
+        }
+        return;
+      }
+    }
+  }
+
+  /** 每帧：检测是否有求饶的 scout 靠近玩家并按 E 触发求饶对话。 */
+  handleSurrender() {
+    if (this.dialog.isActive) {
+      return;
+    }
+    for (const enemy of this.enemies.activeEnemies) {
+      if (!enemy.active || !enemy.isSurrendered) {
+        continue;
+      }
+      const dist = Phaser.Math.Distance.Between(this.player.x, this.player.y, enemy.x, enemy.y);
+      if (dist < 80) {
+        this.hud.showPrompt('E 处置求饶者');
+        if (this.player.wantsInteract()) {
+          this.dialog.setSurrenderTarget(enemy);
+          this.dialog.start(SCOUT_SURRENDER_DIALOG);
+        }
+        return;
+      }
+    }
   }
 
   /** 每帧：处理调查点提示与拾取。 */
@@ -147,11 +262,13 @@ export class FlowController {
       .setOrigin(0)
       .setScrollFactor(0)
       .setDepth(120);
+    const moralSuffix = endingMoralSuffix(this.story.moralChoices);
+    const endingBody = `密室中，三样遗物静静等待：\n《龙影刀经》、龙刃刀、父亲遗书。\n\n${moralSuffix}“刀可以杀人，也可以救人。\n若有一日你拔出龙刃，记住，不要让仇恨替你握刀。”\n\n雨夜未尽，少年带刀离家。\n他还不懂何时收刀，却已踏入江湖。`;
     const text = this.scene.add
       .text(
         640,
         260,
-        '密室中，三样遗物静静等待：\n《龙影刀经》、龙刃刀、父亲遗书。\n\n“刀可以杀人，也可以救人。\n若有一日你拔出龙刃，记住，不要让仇恨替你握刀。”\n\n雨夜未尽，少年带刀离家。\n他还不懂何时收刀，却已踏入江湖。',
+        endingBody,
         {
           color: '#f2dfb8',
           fontFamily: 'serif',
