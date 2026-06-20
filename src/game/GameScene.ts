@@ -122,7 +122,7 @@ export class GameScene extends Phaser.Scene {
     this.hud.showSubtitle('雨没有停。父亲的棺木刚入土，陆家旧宅却还藏着未冷的刀声。');
 
     this.add
-      .text(22, 690, '移动WASD 闪避Space 轻斩J 重斩K 格挡L 刀气U 潜龙I 裂鳞O 调查E', {
+      .text(22, 690, '移动WASD 闪避Space 轻斩J 重斩K 格挡L 刀气U 潜龙I 裂鳞O 对话/调查E', {
         color: '#8fa9b0',
         fontFamily: 'serif',
         fontSize: '14px',
