@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { CombatSystem, type Strike } from '../combat/CombatSystem';
+import { COMBAT_BALANCE } from '../combat/combatBalance';
 import { BladeAura } from '../combat/BladeAura';
 import { SkillSystem, type SkillCastResult } from '../skills/SkillSystem';
 import { SKILL_DEFS, type SkillId } from '../skills/skillDefs';
@@ -58,13 +59,24 @@ export class CombatDirector {
   applyPlayerAttack(strike: Strike, time: number) {
     const empowered = this.player.machine.consumeCounterWindow(time);
     const finalStrike: Strike = empowered
-      ? { ...strike, damage: Math.round(strike.damage * 1.6), guardDamage: 999 }
+      ? {
+          ...strike,
+          damage: Math.round(strike.damage * COMBAT_BALANCE.empoweredCounter.damageMultiplier),
+          guardDamage: COMBAT_BALANCE.empoweredCounter.guardDamage,
+        }
       : strike;
 
     this.sfx(empowered ? 'slashEmpowered' : strike.damage >= 24 ? 'slashHeavy' : 'slashLight');
     this.showSlash(empowered);
 
-    if (this.resolveMeleeHit(finalStrike, 92, 112, time)) {
+    if (
+      this.resolveMeleeHit(
+        finalStrike,
+        COMBAT_BALANCE.meleeRange.enemyX,
+        COMBAT_BALANCE.meleeRange.bossX,
+        time,
+      )
+    ) {
       this.sfx('hit');
     }
   }
@@ -93,17 +105,17 @@ export class CombatDirector {
           this.player.x,
           this.player.y,
           enemyRange,
-          86,
+          COMBAT_BALANCE.meleeRange.enemyY,
         )
       ) {
         continue;
       }
       enemy.receiveStrike(strike, time);
       landed = true;
-      this.player.machine.addSoul(3);
+      this.player.machine.addSoul(COMBAT_BALANCE.soulReward.meleeHit);
       if (!enemy.active) {
-        this.player.machine.addSoul(5);
-        this.player.moral.addLiqi(10);
+        this.player.machine.addSoul(COMBAT_BALANCE.soulReward.kill);
+        this.player.moral.addLiqi(COMBAT_BALANCE.liqiReward.kill);
       }
     }
 
@@ -111,7 +123,7 @@ export class CombatDirector {
     if (
       boss?.active &&
       Math.abs(boss.x - this.player.x) < bossRange &&
-      Math.abs(boss.y - this.player.y) < 94
+      Math.abs(boss.y - this.player.y) < COMBAT_BALANCE.meleeRange.bossY
     ) {
       boss.receiveStrike(strike, time);
       landed = true;
@@ -140,9 +152,9 @@ export class CombatDirector {
     for (let i = this.auras.length - 1; i >= 0; i--) {
       const aura = this.auras[i];
       const done = aura.update(time, (target) => {
-        this.player.machine.addSoul(2);
+        this.player.machine.addSoul(COMBAT_BALANCE.soulReward.bladeAuraHit);
         if (!target.active) {
-          this.player.moral.addLiqi(8);
+          this.player.moral.addLiqi(COMBAT_BALANCE.liqiReward.bladeAuraKill);
         }
       });
       if (done) {
@@ -272,9 +284,8 @@ export class CombatDirector {
     }
 
     // 命中判定：按形态 rangeMultiplier 调整范围
-    const baseRange = 92;
-    const range = Math.round(baseRange * cast.rangeMultiplier);
-    const bossRange = Math.round(112 * cast.rangeMultiplier);
+    const range = Math.round(COMBAT_BALANCE.meleeRange.enemyX * cast.rangeMultiplier);
+    const bossRange = Math.round(COMBAT_BALANCE.meleeRange.bossX * cast.rangeMultiplier);
     if (this.resolveMeleeHit(cast.strike, range, bossRange, time)) {
       this.sfx('hit');
     }
@@ -286,14 +297,23 @@ export class CombatDirector {
         if (!npc.active) {
           continue;
         }
-        if (isAllyWithinRange(npc.x, npc.y, this.player.x, this.player.y, range, 86)) {
+        if (
+          isAllyWithinRange(
+            npc.x,
+            npc.y,
+            this.player.x,
+            this.player.y,
+            range,
+            COMBAT_BALANCE.meleeRange.enemyY,
+          )
+        ) {
           if (npc.takeDamage()) {
             harmedNewAlly = true;
           }
         }
       }
       if (harmedNewAlly) {
-        this.player.moral.addLiqi(12);
+        this.player.moral.addLiqi(COMBAT_BALANCE.liqiReward.allyHarm);
         this.hud.showSubtitle('刀气擦过村民——你差点伤到了无辜的人。');
       }
     }
@@ -373,8 +393,8 @@ export class CombatDirector {
         this.player.machine.grantCounterWindow(result.counterWindowUntil);
       }
       // 完美格挡涨守心 + 积累龙魂：克制化解的双重奖励
-      this.player.moral.addShouxin(8);
-      this.player.machine.addSoul(6);
+      this.player.moral.addShouxin(COMBAT_BALANCE.shouxinReward.perfectGuard);
+      this.player.machine.addSoul(COMBAT_BALANCE.soulReward.perfectGuard);
       this.sfx('perfectGuard');
       this.hud.showSubtitle('听风断影——你卸开这一击，反手已有破绽可乘。', 1500);
       return;
