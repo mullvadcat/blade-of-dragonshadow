@@ -15,6 +15,8 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   readonly dialogId: string;
   /** 对话是否已完成（用于线索村民标记，避免重复触发）。 */
   talked = false;
+  /** 是否已被误伤（保底不致死，仅标记 + 视觉反馈）。 */
+  injured = false;
   private readonly nameplate: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, x: number, y: number, options: NpcOptions) {
@@ -52,6 +54,20 @@ export class Npc extends Phaser.Physics.Arcade.Sprite {
   markTalked() {
     this.talked = true;
     this.nameplate.setColor('#6a6a6a');
+  }
+
+  /**
+   * 受伤标记：首次受伤设 injured + 泛红视觉，返回 true；
+   * 已受伤则仅刷新视觉，返回 false（幂等，防刷值）。
+   */
+  takeDamage(): boolean {
+    if (this.injured) {
+      return false;
+    }
+    this.injured = true;
+    this.setTint(0xff5b5b);
+    this.nameplate.setColor('#ff8a6a');
+    return true;
   }
 
   destroy(fromScene?: boolean) {
