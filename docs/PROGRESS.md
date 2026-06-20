@@ -15,9 +15,10 @@
 | M2 | 龙魂 / 刀气 | ✅ 完成 | `e022888` | （含于 M1 提交） |
 | M3 | 龙影九斩前三式 + 技能形态切换 | ✅ 完成 | `e022888` | 10 |
 | M4 | 对话系统 + 村民 NPC + 求饶探子道德事件 | ✅ 完成 | `ef4b74c` → `4ecb498` | 20 |
-| M5 | 保护村民道德事件 + 狂暴误伤 NPC 判定 | ⏳ 待开发 | — | — |
+| M5 | 狂暴误伤 NPC 判定 + 攻击致死求饶者 | ✅ 完成 | `65b734d` → `b2e2efa` | 5 |
+| M6 | 保护村民道德事件 + 限场地破坏机制 | ⏳ 待开发 | — | — |
 
-**当前测试总计**：73 passed（10 test files） — `npm run lint && npm run typecheck && npm test` 三件套全绿。
+**当前测试总计**：78 passed（11 test files） — `npm run lint && npm run typecheck && npm test` 三件套全绿。
 
 ---
 
@@ -122,6 +123,34 @@
 
 ---
 
+## M5 · 狂暴误伤 NPC 判定 + 攻击致死求饶者
+
+**目标**：落地"力量失控波及无辜"玩法后果——狂暴形态大范围技能波及村民 NPC 记戾气 + NPC 受伤（保底不致死）；玩家直接攻击致死已求饶探子记 killedScout + 戾气。
+
+**关键交付**：
+- `src/game/entities/allyCasualty.ts` — `isAllyWithinRange` 纯函数（无 Phaser 依赖，可单测）
+- `src/game/skills/skillDefs.ts` — `SkillFormModifier` 加 `hitsAllies?: boolean`；wrath 形态设 true
+- `src/game/skills/SkillSystem.ts` — `SkillCastResult` 透传 `hitsAllies`
+- `src/game/entities/Npc.ts` — `injured` 标志 + `takeDamage()` 幂等方法（保底不致死，首次返回 true）
+- `src/game/director/CombatDirector.ts` — 构造加 story + npcs；`executeSkillEffect` 狂暴误伤判定（排除游龙回身，每次释放最多 +12 戾气）；击杀求饶 scout 记 killedScout（+20 戾气，复用 M4 结局文案）
+- `src/game/GameScene.ts` — CombatDirector 构造传入 story + npcs
+
+**道德事件数值**：
+- 误伤村民（狂暴形态技能范围内，每 NPC 首次）→ 戾气 +12
+- 攻击致死求饶探子 → 戾气 +20 + `killedScout`（复用 M4 结局文案段）
+
+**测试**：`tests/ally-casualty.test.ts`（5 tests）— 纯函数范围/边界/方向
+
+**提交范围**：`65b734d` → `b2e2efa`（6 个提交，TDD + 集成）
+
+**设计文档**：
+- Spec：[`docs/superpowers/specs/2026-06-20-ally-casualty-surrender-kill-design.md`](./superpowers/specs/2026-06-20-ally-casualty-surrender-kill-design.md)
+- Plan：[`docs/superpowers/plans/2026-06-20-ally-casualty-surrender-kill.md`](./superpowers/plans/2026-06-20-ally-casualty-surrender-kill.md)
+
+**运行时验证**：playwright 端到端脚本通过（狂暴形态误伤 NPC + 戾气上涨、平衡形态不误伤、攻击致死求饶探子记 killedScout + 戾气）。
+
+---
+
 ## 当前可玩内容概览（第一章·雨夜疑案）
 
 | 功能 | 状态 | 代码位置 |
@@ -134,7 +163,8 @@
 | 四线索调查解谜 | ✅ | `story/StoryFlags.ts`（前 3 调查点 + 第 4 由村民对话揭示） |
 | 对话系统（分支对话框） | ✅ | `dialog/DialogSystem.ts`、`dialog/DialogUi.ts` |
 | 村民 NPC（沉默村民 / 氛围村民） | ✅ | `entities/Npc.ts`、`world/WorldBuilder.ts` |
-| 求饶探子道德事件（放过 / 处决） | ✅ | `entities/Enemy.ts`、`flow/FlowController.ts` |
+| 求饶探子道德事件（放过 / 处决 / 攻击致死） | ✅ | `entities/Enemy.ts`、`flow/FlowController.ts`、`director/CombatDirector.ts` |
+| 狂暴误伤 NPC 判定（保底不致死） | ✅ | `entities/allyCasualty.ts`、`entities/Npc.ts`、`director/CombatDirector.ts` |
 | 结局文案道德变体 | ✅ | `flow/endingMoralSuffix.ts` |
 | 乌针 Boss（针刺 / 烟遁两阶段） | ✅ | `entities/BossWuzhen.ts` |
 | 程序化音频（雨声 / 悬疑旋律 / 战斗音效） | ✅ | `audio/AudioDirector.ts` |
@@ -144,14 +174,15 @@
 
 ---
 
-## 下一步：M5 · 保护村民道德事件 + 狂暴误伤 NPC 判定
+## 下一步：M6 · 保护村民道德事件 + 限场地破坏机制
 
-**待开发内容**（M4 spec §8 已明确边界）：
+**待开发内容**：
 - **保护村民道德事件**：村民被敌人威胁时玩家介入保护 → `protectedVillager` ChoiceId（StoryFlags 已预留）→ 守心 +
-- **狂暴误伤 NPC 判定**：接入 SkillSystem 预留的 `hitsAllies` 接口——狂暴形态大范围技能（潜龙 / 裂鳞）波及村民 NPC 时记戾气 +
-- **攻击致死求饶者判定**：直接攻击致死已求饶探子时记 `killedScout`（M4 只做了对话处决路径，攻击致死路径留 M5）
+- **限场地破坏机制**：GDD 第五章"保护无辜 NPC + 限制场地破坏"——首次把"克制"做成硬性战斗机制（狂暴大范围技能破坏环境/伤及 NPC 会有硬性惩罚）
 
-**前置依赖**：M4 对话系统与 NPC 实体已就绪，M5 在此基础上扩展。
+**前置依赖**：M4 对话系统 + M5 误伤判定已就绪。M6 需新建"敌人威胁 NPC"AI 行为或脚本事件，工作量较大，与 GDD 第五章机制契合度高，可考虑合并到第五章开发或独立做第一章完整化收尾。
+
+**备选方向**：若暂不开发 M6，可转向 **第二章·龙刃初鸣**（GDD §6）——系统化刀法教学、首次精英战（铁臂罗）、戾气值第一次显现（差点误伤无辜路人 + 龙刃首次泛红），引入新场景与敌人类型。
 
 ---
 
