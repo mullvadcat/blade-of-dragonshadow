@@ -107,6 +107,8 @@ export class GameScene extends Phaser.Scene {
       this.enemyDirector,
       this.hud,
       this.sfx,
+      this.story,
+      this.npcs,
       () => {
         if (!this.flow.endingStarted) {
           this.flow.startEnding();
