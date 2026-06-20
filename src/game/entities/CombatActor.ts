@@ -169,6 +169,8 @@ export abstract class CombatActor extends Phaser.Physics.Arcade.Sprite {
     const result = CombatSystem.resolveStrike(strike, this.combatState, time);
     Object.assign(this.combatState, result.target);
 
+    this.onStrikeResolved(result, time);
+
     if (this.combatState.health <= 0) {
       this.defeat();
       return result;
@@ -186,6 +188,9 @@ export abstract class CombatActor extends Phaser.Physics.Arcade.Sprite {
 
   /** 子类可覆写以清理额外的视觉对象（如 Boss 光环）。 */
   protected onDefeat() {}
+
+  /** 子类可覆写：受击结算后、死亡判定前的扩展点（如求饶保底）。 */
+  protected onStrikeResolved(_result: StrikeResult, _time: number) {}
 
   private clearTelegraphGfx() {
     if (this.telegraphGfx) {
@@ -239,7 +244,7 @@ export abstract class CombatActor extends Phaser.Physics.Arcade.Sprite {
     this.clearTelegraphGfx();
   }
 
-  private defeat() {
+  protected defeat() {
     this.cancelTelegraph();
     this.playSfx(this.defeatSfx);
     this.onDefeat();
