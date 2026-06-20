@@ -356,7 +356,7 @@ _（标题浮现：**龙刃归鞘**。）_
 | 龙影九斩技能        | ✅（M3，前三式 + 形态切换）   | `skills/SkillSystem.ts`、`skills/skillDefs.ts`             |
 | 对话系统（分支对话框）| ✅（M4）                    | `dialog/DialogSystem.ts`、`dialog/DialogUi.ts`             |
 | 村民 NPC            | ✅（M4，沉默村民 + 氛围村民） | `entities/Npc.ts`、`world/WorldBuilder.ts`                 |
-| 求饶探子道德事件    | ✅（M4+M5，放过/处决/攻击致死）| `entities/Enemy.ts`、`flow/FlowController.ts`、`director/CombatDirector.ts` |
+| 求饶探子道德事件    | ✅（放过/处决，仅经对话；攻击/AoE 对求饶者豁免）| `entities/Enemy.ts`、`flow/FlowController.ts`、`entities/meleeTarget.ts` |
 | 狂暴误伤 NPC 判定   | ✅（M5，保底不致死）          | `entities/allyCasualty.ts`、`entities/Npc.ts`、`director/CombatDirector.ts` |
 | 结局文案道德变体    | ✅（M4）                      | `flow/endingMoralSuffix.ts`                                |
 | 保护村民道德事件    | ⏳ 待实现（M6）               | —                                                          |

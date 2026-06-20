@@ -149,6 +149,25 @@
 
 **运行时验证**：playwright 端到端脚本通过（狂暴形态误伤 NPC + 戾气上涨、平衡形态不误伤、攻击致死求饶探子记 killedScout + 戾气）。
 
+> **评审后修订（见下方 R1）**：M5 当时的"玩家攻击/AoE 直接击杀求饶探子记 killedScout"分支已废弃。求饶探子现统一只经对话（放过/处决）处置，攻击与刀气对其豁免。本节保留 M5 当时实现以存档。
+
+---
+
+## R1 · 评审重构：近战命中去重 + 求饶者处置统一
+
+**背景**：代码评审发现 `CombatDirector` 的近战命中逻辑在 `applyPlayerAttack` 与 `executeSkillEffect` 间大段重复（~40 行），且"处决求饶 scout"奖励散在三处、数值不一致（攻击致死 +30 戾气 vs 对话处决 +20），求饶者还会被 AoE/刀气无声击杀而绕过道德选择。
+
+**关键交付**：
+- `src/game/entities/meleeTarget.ts` — `isMeleeHittable` 纯函数（存活 ∧ 未求饶 ∧ 在矩形范围内），无 Phaser 依赖，可单测
+- `src/game/director/CombatDirector.ts` — 抽出私有 `resolveMeleeHit(strike, enemyRange, bossRange, time)`，普攻与技能共用；删除两处"击杀求饶 scout"分支（现已不可达）；`releaseBladeAura` 目标列表过滤求饶者；不再依赖 `StoryFlags`
+- `src/game/GameScene.ts` — `CombatDirector` 构造移除 `story` 参数
+
+**行为变化**：
+- 求饶探子**只能经对话处置**（放过守心 +15 / 处决戾气 +20 + 龙魂 +8），近战、技能、刀气对其一律豁免。
+- `killedScout` 现仅由对话 `executeScout` 记录（单一事实来源，`flow/FlowController.ts`）。
+
+**测试**：`tests/melee-target.test.ts`（5 tests）— 求饶豁免 / 存活 / 横纵范围边界。全量 `npm test` 83 passed。
+
 ---
 
 ## 当前可玩内容概览（第一章·雨夜疑案）
@@ -163,7 +182,7 @@
 | 四线索调查解谜 | ✅ | `story/StoryFlags.ts`（前 3 调查点 + 第 4 由村民对话揭示） |
 | 对话系统（分支对话框） | ✅ | `dialog/DialogSystem.ts`、`dialog/DialogUi.ts` |
 | 村民 NPC（沉默村民 / 氛围村民） | ✅ | `entities/Npc.ts`、`world/WorldBuilder.ts` |
-| 求饶探子道德事件（放过 / 处决 / 攻击致死） | ✅ | `entities/Enemy.ts`、`flow/FlowController.ts`、`director/CombatDirector.ts` |
+| 求饶探子道德事件（放过 / 处决，仅经对话处置；攻击/AoE 对求饶者豁免） | ✅ | `entities/Enemy.ts`、`flow/FlowController.ts`、`entities/meleeTarget.ts` |
 | 狂暴误伤 NPC 判定（保底不致死） | ✅ | `entities/allyCasualty.ts`、`entities/Npc.ts`、`director/CombatDirector.ts` |
 | 结局文案道德变体 | ✅ | `flow/endingMoralSuffix.ts` |
 | 乌针 Boss（针刺 / 烟遁两阶段） | ✅ | `entities/BossWuzhen.ts` |
