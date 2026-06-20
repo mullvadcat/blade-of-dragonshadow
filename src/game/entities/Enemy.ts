@@ -3,12 +3,19 @@ import { CombatSystem, type CombatantState, type Strike } from '../combat/Combat
 import { CombatActor } from './CombatActor';
 import type { SfxName } from '../audio/AudioDirector';
 
+import { shouldSurrender } from './surrender';
 export { shouldSurrender, SCOUT_SURRENDER_HEALTH_RATIO } from './surrender';
 
 export type EnemyKind = 'scout' | 'bandit';
 
 export class Enemy extends CombatActor {
   readonly kind: EnemyKind;
+
+  /** 是否已进入求饶状态（仅 scout 会触发）。求饶后停止出招与追击。 */
+  private surrendered = false;
+
+  /** 求饶标记精灵（"求"字标），求饶时显示。 */
+  private surrenderMarker: Phaser.GameObjects.Text | null = null;
 
   constructor(
     scene: Phaser.Scene,
@@ -63,8 +70,93 @@ export class Enemy extends CombatActor {
     this.kind = kind;
   }
 
+  get isSurrendered(): boolean {
+    return this.surrendered;
+  }
+
+  /** 标记求饶：停步、跪地视觉、显"求"标记。 */
+  private markSurrendered() {
+    if (this.surrendered) {
+      return;
+    }
+    this.surrendered = true;
+    const body = this.body as Phaser.Physics.Arcade.Body;
+    body.setVelocityX(0);
+    this.setScale(0.82, 0.78);
+    this.setTint(0x9a8c7a);
+    this.surrenderMarker = this.scene.add
+      .text(this.x, this.y - 56, '求', {
+        color: '#f2dfb8',
+        fontFamily: 'serif',
+        fontSize: '18px',
+        backgroundColor: '#3a1208',
+        padding: { x: 6, y: 2 },
+      })
+      .setOrigin(0.5)
+      .setDepth(25);
+  }
+
+  /** 放过：淡出后销毁（不计击杀，不给龙魂）。实现 SurrenderTarget.escape。 */
+  escape() {
+    if (!this.active) {
+      return;
+    }
+    this.surrenderMarker?.destroy();
+    this.surrenderMarker = null;
+    this.scene.tweens.add({
+      targets: this,
+      alpha: 0,
+      duration: 500,
+      onComplete: () => {
+        this.nameplate.destroy();
+        this.healthBar.destroy();
+        this.disableBody(true, true);
+        this.destroy();
+      },
+    });
+  }
+
+  /** 处决：直接死亡（走 defeat 流程）。实现 SurrenderTarget.execute。 */
+  execute() {
+    if (!this.active) {
+      return;
+    }
+    this.surrenderMarker?.destroy();
+    this.surrenderMarker = null;
+    this.combatState.health = 0;
+    this.defeat();
+  }
+
+  protected onStrikeResolved() {
+    if (this.kind !== 'scout' || this.surrendered) {
+      return;
+    }
+    if (this.combatState.health <= 0) {
+      // 本会致死但 scout 未求饶过：保底 1 血给玩家选择机会
+      this.combatState.health = 1;
+    }
+    if (shouldSurrender(this.combatState.health, this.combatState.maxHealth)) {
+      this.markSurrendered();
+    }
+  }
+
+  advanceAttack(time: number, playerX: number): Strike | null {
+    if (this.surrendered) {
+      return null;
+    }
+    return super.advanceAttack(time, playerX);
+  }
+
   update(time: number, playerX: number) {
     if (!this.active) {
+      return;
+    }
+
+    if (this.surrendered) {
+      const body = this.body as Phaser.Physics.Arcade.Body;
+      body.setVelocityX(0);
+      this.followUi();
+      this.surrenderMarker?.setPosition(this.x, this.y - 56);
       return;
     }
 
