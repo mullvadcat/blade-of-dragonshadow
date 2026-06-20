@@ -7,6 +7,7 @@ describe('CHARACTER_ART_SPECS', () => {
       'bandit',
       'player',
       'scout',
+      'villager',
       'wuzhen',
     ]);
 
