@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 
-export type CharacterArtKey = 'player' | 'scout' | 'bandit' | 'wuzhen';
+export type CharacterArtKey = 'player' | 'scout' | 'bandit' | 'wuzhen' | 'villager';
 
 export type CharacterArtSpec = {
   textureKey: string;
@@ -39,6 +39,13 @@ export const CHARACTER_ART_SPECS: Record<CharacterArtKey, CharacterArtSpec> = {
     transparentBackground: true,
     features: ['tall assassin frame', 'red-black cloak', 'needle blades', 'evil aura'],
   },
+  villager: {
+    textureKey: 'npc-villager',
+    width: 60,
+    height: 84,
+    transparentBackground: true,
+    features: ['grey robe', 'straw hat', 'hunched frame', 'rain-soaked'],
+  },
 };
 
 const drawPixelRect = (
@@ -75,6 +82,7 @@ export const createCharacterTextures = (scene: Phaser.Scene) => {
   createScoutTexture(scene);
   createBanditTexture(scene);
   createWuzhenTexture(scene);
+  createVillagerTexture(scene);
 };
 
 const makeGraphics = (scene: Phaser.Scene) => scene.make.graphics({ x: 0, y: 0 }, false);
@@ -168,6 +176,33 @@ const createWuzhenTexture = (scene: Phaser.Scene) => {
   drawPixelRect(gfx, 31, 32, 17, 3, 0xff304c);
   drawPixelRect(gfx, 21, 35, 5, 44, 0x7f1021, 0.72);
   drawPixelRect(gfx, 55, 35, 5, 44, 0x7f1021, 0.72);
+
+  gfx.generateTexture(spec.textureKey, spec.width, spec.height);
+  gfx.destroy();
+};
+
+const createVillagerTexture = (scene: Phaser.Scene) => {
+  const spec = CHARACTER_ART_SPECS.villager;
+  const gfx = makeGraphics(scene);
+
+  // 斗笠
+  drawPixelRect(gfx, 14, 14, 32, 6, 0x8a7a5a);
+  drawPixelRect(gfx, 18, 10, 24, 8, 0x6b5d44);
+  // 脸
+  drawPixelRect(gfx, 22, 24, 16, 10, 0xc9a884);
+  // 灰色长袍
+  drawPixelRect(gfx, 16, 36, 28, 34, 0x5a5550);
+  drawPixelRect(gfx, 12, 40, 10, 30, 0x3e3a36);
+  drawPixelRect(gfx, 38, 40, 10, 30, 0x3e3a36);
+  // 腰带
+  drawPixelRect(gfx, 16, 54, 28, 5, 0x4a4540);
+  // 腿
+  drawPixelRect(gfx, 22, 70, 8, 12, 0x2a2622);
+  drawPixelRect(gfx, 32, 70, 8, 12, 0x2a2622);
+  drawPixelRect(gfx, 18, 82, 12, 2, 0x0c0b0a);
+  drawPixelRect(gfx, 32, 82, 12, 2, 0x0c0b0a);
+  // 雨湿质感（肩部高光）
+  drawPixelRect(gfx, 16, 36, 28, 3, 0x7a7570, 0.5);
 
   gfx.generateTexture(spec.textureKey, spec.width, spec.height);
   gfx.destroy();
