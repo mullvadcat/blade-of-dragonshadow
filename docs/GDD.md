@@ -342,12 +342,21 @@ _（标题浮现：**龙刃归鞘**。）_
 
 ## 附：与现有 demo 的对应
 
-| GDD 要素            | demo 落地情况       | 代码位置                                                   |
-| ------------------- | ------------------- | ---------------------------------------------------------- |
-| 第一章·雨夜疑案     | ✅ 垂直切片         | `src/game/GameScene.ts`                                    |
-| 四线索调查解谜      | ✅                  | `src/game/story/StoryFlags.ts`                             |
-| 完美格挡 + 反击窗口 | ✅                  | `src/game/combat/CombatSystem.ts`、`PlayerStateMachine.ts` |
-| 乌针 Boss（两阶段） | ✅                  | `src/game/entities/BossWuzhen.ts`                          |
-| 戾气化红色刀光      | 🟡 雏形（受击泛红） | `GameScene.applyEnemyStrike`                               |
-| 戾气值 / 守心值系统 | ❌ 待实现           | —                                                          |
-| 龙影九斩技能        | ❌ 待实现           | —                                                          |
+> 里程碑进度总览见 [PROGRESS.md](./PROGRESS.md)。
+
+| GDD 要素            | demo 落地情况                 | 代码位置                                                   |
+| ------------------- | ----------------------------- | ---------------------------------------------------------- |
+| 第一章·雨夜疑案     | ✅ 垂直切片                   | `src/game/GameScene.ts`                                    |
+| 四线索调查解谜      | ✅（前 3 调查点 + 第 4 村民对话） | `src/game/story/StoryFlags.ts`、`flow/FlowController.ts`   |
+| 完美格挡 + 反击窗口 | ✅                            | `src/game/combat/CombatSystem.ts`、`PlayerStateMachine.ts` |
+| 乌针 Boss（两阶段） | ✅                            | `src/game/entities/BossWuzhen.ts`                          |
+| 戾气 / 守心双值系统 | ✅（M1）                      | `src/game/moral/MoralState.ts`、`ui/Hud.ts`                |
+| 戾气化刀光（形态化）| ✅（M3，随心境变色 + 边缘晕染）| `moral/MoralState.ts` bladeColor()、`ui/Hud.ts` edgeTint() |
+| 龙魂能量池 + 刀气   | ✅（M2）                      | `combat/BladeAura.ts`、`PlayerStateMachine.ts`             |
+| 龙影九斩技能        | ✅（M3，前三式 + 形态切换）   | `skills/SkillSystem.ts`、`skills/skillDefs.ts`             |
+| 对话系统（分支对话框）| ✅（M4）                    | `dialog/DialogSystem.ts`、`dialog/DialogUi.ts`             |
+| 村民 NPC            | ✅（M4，沉默村民 + 氛围村民） | `entities/Npc.ts`、`world/WorldBuilder.ts`                 |
+| 求饶探子道德事件    | ✅（M4，放过守心+ / 处决戾气+）| `entities/Enemy.ts`、`flow/FlowController.ts`              |
+| 结局文案道德变体    | ✅（M4）                      | `flow/endingMoralSuffix.ts`                                |
+| 保护村民道德事件    | ⏳ 待实现（M5）               | —                                                          |
+| 狂暴误伤 NPC 判定   | ⏳ 待实现（M5）               | —                                                          |
