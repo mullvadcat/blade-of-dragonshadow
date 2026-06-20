@@ -80,6 +80,7 @@ export class EnemyDirector {
     return this.enemies.some(
       (enemy) =>
         enemy.active &&
+        !enemy.isSurrendered &&
         Math.abs(enemy.x - playerX) < radiusX &&
         Math.abs(enemy.y - playerY) < radiusY,
     );
