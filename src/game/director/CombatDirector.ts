@@ -8,6 +8,9 @@ import type { Player } from '../player/Player';
 import type { EnemyDirector } from './EnemyDirector';
 import type { Hud } from '../ui/Hud';
 import type { SfxName } from '../audio/AudioDirector';
+import { isAllyWithinRange } from '../entities/allyCasualty';
+import type { StoryFlags } from '../story/StoryFlags';
+import type { Npc } from '../entities/Npc';
 
 /**
  * 战斗调度：处理玩家攻击的命中判定与刀光、敌人落招对玩家的伤害结算与受击反馈、
@@ -34,6 +37,8 @@ export class CombatDirector {
     private readonly enemies: EnemyDirector,
     private readonly hud: Hud,
     sfx: (name: SfxName) => void,
+    private readonly story: StoryFlags,
+    private readonly npcs: readonly Npc[],
     onBossDefeated: () => void,
   ) {
     this.sfx = sfx;
@@ -73,6 +78,11 @@ export class CombatDirector {
         if (!enemy.active) {
           this.player.machine.addSoul(5);
           this.player.moral.addLiqi(10);
+          if (enemy.kind === 'scout' && enemy.isSurrendered) {
+            this.story.recordChoice('killedScout');
+            this.player.moral.addLiqi(20);
+            this.hud.showSubtitle('求饶的探子死在你的刀下。');
+          }
         }
       }
     }
@@ -256,6 +266,11 @@ export class CombatDirector {
         if (!enemy.active) {
           this.player.machine.addSoul(5);
           this.player.moral.addLiqi(10);
+          if (enemy.kind === 'scout' && enemy.isSurrendered) {
+            this.story.recordChoice('killedScout');
+            this.player.moral.addLiqi(20);
+            this.hud.showSubtitle('求饶的探子死在你的刀下。');
+          }
         }
       }
     }
@@ -274,6 +289,25 @@ export class CombatDirector {
 
     if (landed) {
       this.sfx('hit');
+    }
+
+    // 狂暴误伤判定：大范围技能波及村民 NPC（游龙回身是精准反击，不波及）
+    if (cast.form.hitsAllies && cast.skillId !== 'dragonReturn') {
+      let harmedNewAlly = false;
+      for (const npc of this.npcs) {
+        if (!npc.active) {
+          continue;
+        }
+        if (isAllyWithinRange(npc.x, npc.y, this.player.x, this.player.y, range, 86)) {
+          if (npc.takeDamage()) {
+            harmedNewAlly = true;
+          }
+        }
+      }
+      if (harmedNewAlly) {
+        this.player.moral.addLiqi(12);
+        this.hud.showSubtitle('刀气擦过村民——你差点伤到了无辜的人。');
+      }
     }
 
     this.showSkillFx(cast.skillId);
