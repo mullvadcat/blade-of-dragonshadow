@@ -3,6 +3,8 @@ import { CombatSystem, type CombatantState, type Strike } from '../combat/Combat
 import { CombatActor } from './CombatActor';
 import type { SfxName } from '../audio/AudioDirector';
 
+export { shouldSurrender, SCOUT_SURRENDER_HEALTH_RATIO } from './surrender';
+
 export type EnemyKind = 'scout' | 'bandit';
 
 export class Enemy extends CombatActor {
