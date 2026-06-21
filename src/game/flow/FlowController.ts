@@ -7,6 +7,8 @@ import type { AudioDirector } from '../audio/AudioDirector';
 import type { InvestigationPoint } from '../world/WorldBuilder';
 import { VILLAGER_DIALOG, SCOUT_SURRENDER_DIALOG, AMBIENT_VILLAGER_DIALOG } from '../dialog/dialogDefs';
 import { endingMoralSuffix } from './endingMoralSuffix';
+import { shouldTriggerProtectEvent, resolveProtectOutcome } from './protectEvent';
+import { COMBAT_BALANCE } from '../combat/combatBalance';
 import type { DialogSystem } from '../dialog/DialogSystem';
 import type { Npc } from '../entities/Npc';
 import type { DialogDef } from '../dialog/dialogDefs';
@@ -20,6 +22,11 @@ export class FlowController {
   endingStarted = false;
   gameOverStarted = false;
   chamberOpened = false;
+  /** 保护村民事件是否已触发（spawnThreat 已调用）。 */
+  protectTriggered = false;
+  /** 保护村民事件是否已解析（成功或失败），GameScene 据此停止推进威胁者。 */
+  protectResolved = false;
+  private threatenedVillager: Npc | null = null;
 
   private readonly restartKey: Phaser.Input.Keyboard.Key;
   private readonly npcs: Npc[];
@@ -55,6 +62,7 @@ export class FlowController {
     };
 
     this.registerDialogActions();
+    this.threatenedVillager = npcs.find((npc) => npc.dialogId === 'villager') ?? null;
   }
 
   private registerDialogActions() {
@@ -167,6 +175,11 @@ export class FlowController {
     this.hud.showSubtitle(activePoint.text);
   }
 
+  /** 受威胁村民 x 坐标（GameScene 推进威胁者朝村民移动用）。无村民则返回 0。 */
+  get threatenedVillagerX(): number {
+    return this.threatenedVillager?.x ?? 0;
+  }
+
   /** 每帧：书房暗门触发与 Boss 生成。 */
   handleStudyGate() {
     const nearStudy = Phaser.Math.Distance.Between(this.player.x, this.player.y, 2380, 590) < 110;
@@ -188,6 +201,55 @@ export class FlowController {
       this.enemies.spawnBoss();
       this.audioDirector.setMode('boss');
       this.hud.showSubtitle('乌针：龙刃刀经，终究还是要归黑鳞会。');
+    }
+  }
+
+  /** 每帧：检测保护村民事件触发与成败（威胁者 update/Strike 由 GameScene 统一推进）。 */
+  handleProtectEvent() {
+    if (this.protectResolved || !this.threatenedVillager?.active) {
+      return;
+    }
+
+    if (!this.protectTriggered) {
+      const dist = Phaser.Math.Distance.Between(
+        this.player.x,
+        this.player.y,
+        this.threatenedVillager.x,
+        this.threatenedVillager.y,
+      );
+      if (
+        shouldTriggerProtectEvent({
+          hasThreatenedClue: this.story.hasClue('threatenedVillagers'),
+          playerToVillagerDist: dist,
+          protectResolved: this.protectResolved,
+        })
+      ) {
+        this.protectTriggered = true;
+        this.enemies.spawnThreat(2300);
+        this.hud.showSubtitle('山匪逼近村民，刀光在雨里发寒。');
+      }
+      return;
+    }
+
+    const threat = this.enemies.activeThreat;
+    if (!threat) {
+      return;
+    }
+
+    const outcome = resolveProtectOutcome({
+      threatActive: threat.active,
+      threatToVillagerDist: Math.abs(threat.x - this.threatenedVillager.x),
+    });
+
+    if (outcome === 'success') {
+      this.protectResolved = true;
+      this.story.recordChoice('protectedVillager');
+      this.player.moral.addShouxin(COMBAT_BALANCE.shouxinReward.protectVillager);
+      this.hud.showSubtitle('村民望着你收刀，眼里有泪。');
+    } else if (outcome === 'failure') {
+      this.protectResolved = true;
+      this.threatenedVillager.takeDamage();
+      this.hud.showSubtitle('你慢了一步，村民倒在血水里。');
     }
   }
 
