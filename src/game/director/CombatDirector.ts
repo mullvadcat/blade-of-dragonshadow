@@ -6,7 +6,7 @@ import { SkillSystem, type SkillCastResult } from '../skills/SkillSystem';
 import { SKILL_DEFS, type SkillId } from '../skills/skillDefs';
 import type { CombatActor } from '../entities/CombatActor';
 import type { Player } from '../player/Player';
-import type { EnemyDirector } from './EnemyDirector';
+import type { IEnemyDirector } from './IEnemyDirector';
 import type { Hud } from '../ui/Hud';
 import type { SfxName } from '../audio/AudioDirector';
 import { isAllyWithinRange } from '../entities/allyCasualty';
@@ -37,7 +37,7 @@ export class CombatDirector {
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly player: Player,
-    private readonly enemies: EnemyDirector,
+    private readonly enemies: IEnemyDirector,
     private readonly hud: Hud,
     sfx: (name: SfxName) => void,
     private readonly npcs: readonly Npc[],
