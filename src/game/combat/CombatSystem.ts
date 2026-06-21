@@ -20,6 +20,7 @@ export type Strike = {
   staminaDamage: number;
   blockDamageMultiplier: number;
   staggerDuration: number;
+  isPoiseBreaker?: boolean; // 仅裂鳞破甲设为 true，BossIronArmLuo 内部消费
 };
 
 export type StrikeResult = {

@@ -93,6 +93,10 @@ export class SkillSystem {
       guardDamage: Math.round(def.strike.guardDamage * form.damageMultiplier),
     };
 
+    if (id === 'scaleBreak') {
+      strike.isPoiseBreaker = true;
+    }
+
     const selfHarm = form.selfHarmRatio ? Math.round(maxHealth * form.selfHarmRatio) : 0;
     const guardReduceUntil = form.guardReduceUntil ? now + form.guardReduceUntil.durationMs : null;
     const guardReduceRatio = form.guardReduceUntil?.ratio ?? 0;
