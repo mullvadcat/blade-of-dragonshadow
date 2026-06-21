@@ -359,5 +359,5 @@ _（标题浮现：**龙刃归鞘**。）_
 | 求饶探子道德事件    | ✅（放过/处决，仅经对话；攻击/AoE 对求饶者豁免）| `entities/Enemy.ts`、`flow/FlowController.ts`、`entities/meleeTarget.ts` |
 | 狂暴误伤 NPC 判定   | ✅（M5，保底不致死）          | `entities/allyCasualty.ts`、`entities/Npc.ts`、`director/CombatDirector.ts` |
 | 结局文案道德变体    | ✅（M4）                      | `flow/endingMoralSuffix.ts`                                |
-| 保护村民道德事件    | ⏳ 待实现（M6）               | —                                                          |
-| 限场地破坏机制      | ⏳ 待实现（M6）               | —                                                          |
+| 保护村民道德事件    | ✅（M6，脚本式触发，击败威胁者得守心+）| `flow/protectEvent.ts`、`flow/FlowController.ts` |
+| 限场地破坏机制      | ✅（M6，可破坏物 + 狂暴招式破坏加戾气）| `entities/Destructible.ts`、`director/CombatDirector.ts` |

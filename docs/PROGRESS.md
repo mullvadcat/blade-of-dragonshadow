@@ -16,9 +16,9 @@
 | M3 | 龙影九斩前三式 + 技能形态切换 | ✅ 完成 | `e022888` | 10 |
 | M4 | 对话系统 + 村民 NPC + 求饶探子道德事件 | ✅ 完成 | `ef4b74c` → `4ecb498` | 20 |
 | M5 | 狂暴误伤 NPC 判定 + 攻击致死求饶者 | ✅ 完成 | `65b734d` → `b2e2efa` | 5 |
-| M6 | 保护村民道德事件 + 限场地破坏机制 | ⏳ 待开发 | — | — |
+| M6 | 保护村民道德事件 + 限场地破坏机制 | ✅ 完成 | `452fc49` | 16 |
 
-**当前测试总计**：78 passed（11 test files） — `npm run lint && npm run typecheck && npm test` 三件套全绿。
+**当前测试总计**：99 passed（14 test files） — `npm run lint && npm run typecheck && npm test` 三件套全绿。
 
 ---
 
@@ -153,6 +153,42 @@
 
 ---
 
+## M6 · 保护村民道德事件 + 限场地破坏机制
+
+**目标**：第一章完整化收尾——保护村民道德事件（脚本式触发，击败威胁者得守心+）+ 限场地破坏机制（可破坏环境物体，狂暴大范围招式破坏加戾气硬性惩罚）。
+
+**关键交付**：
+- `src/game/entities/destructibleTarget.ts` — `isDestructibleInRange` 纯函数（无 Phaser 依赖，可单测）
+- `src/game/entities/Destructible.ts` — 可破坏物实体（物理体+碎裂视觉，4 种程序化纹理）
+- `src/game/flow/protectEvent.ts` — `shouldTriggerProtectEvent` / `resolveProtectOutcome` 纯函数（可单测）
+- `src/game/world/WorldBuilder.ts` — `createDestructibles()`（7 件可破坏物）+ `createDestructibleTextures()`
+- `src/game/director/EnemyDirector.ts` — `spawnThreat()` 脚本生成威胁 bandit + `activeThreat` getter
+- `src/game/director/CombatDirector.ts` — 构造加 destructibles；`releaseBladeAura` 路径破坏+目标加威胁者；`executeSkillEffect` 范围破坏；`resolveThreatMeleeHit` 让普攻/技能命中威胁者
+- `src/game/flow/FlowController.ts` — `handleProtectEvent` 每帧检测触发与成败 + `protectTriggered`/`protectResolved` 状态 + `threatenedVillagerX` getter
+- `src/game/flow/endingMoralSuffix.ts` — 加 `protectedVillager` 文案分支
+- `src/game/combat/combatBalance.ts` — 加破坏惩罚/保护奖励数值
+- `src/game/GameScene.ts` — 装配 destructibles；update 调用 handleProtectEvent + 威胁者推进
+
+**道德事件数值**：
+- 保护村民成功 → 守心 +18（`protectedVillager`）
+- 破坏可破坏物（刀气路径）→ 戾气 +5/件
+- 破坏可破坏物（技能平衡/守护形态）→ 戾气 +6/件
+- 破坏可破坏物（技能狂暴形态）→ 戾气 +8/件 + 字幕警示
+- 普攻/游龙回身不破坏（精准斩击不波及环境）
+
+**测试**：
+- `tests/destructible-target.test.ts`（5 tests）— 纯函数范围/边界/方向
+- `tests/protect-event.test.ts`（9 tests）— 触发条件 + 成败判定
+- `tests/ending-moral-suffix.test.ts`（7 tests）— 加 protectedVillager 分支 + 优先级（净增 2）
+
+**提交范围**：`cde22c4` → `452fc49`（11 个提交）
+
+**设计文档**：
+- Spec：[`docs/superpowers/specs/2026-06-21-protect-villager-destructible-design.md`](./superpowers/specs/2026-06-21-protect-villager-destructible-design.md)
+- Plan：[`docs/superpowers/plans/2026-06-21-protect-villager-destructible.md`](./superpowers/plans/2026-06-21-protect-villager-destructible.md)
+
+---
+
 ## R1 · 评审重构：近战命中去重 + 求饶者处置统一
 
 **背景**：代码评审发现 `CombatDirector` 的近战命中逻辑在 `applyPlayerAttack` 与 `executeSkillEffect` 间大段重复（~40 行），且"处决求饶 scout"奖励散在三处、数值不一致（攻击致死 +30 戾气 vs 对话处决 +20），求饶者还会被 AoE/刀气无声击杀而绕过道德选择。
@@ -184,6 +220,8 @@
 | 村民 NPC（沉默村民 / 氛围村民） | ✅ | `entities/Npc.ts`、`world/WorldBuilder.ts` |
 | 求饶探子道德事件（放过 / 处决，仅经对话处置；攻击/AoE 对求饶者豁免） | ✅ | `entities/Enemy.ts`、`flow/FlowController.ts`、`entities/meleeTarget.ts` |
 | 狂暴误伤 NPC 判定（保底不致死） | ✅ | `entities/allyCasualty.ts`、`entities/Npc.ts`、`director/CombatDirector.ts` |
+| 保护村民道德事件（脚本式，击败威胁者得守心+） | ✅ | `flow/protectEvent.ts`、`flow/FlowController.ts`、`director/EnemyDirector.ts` |
+| 限场地破坏机制（可破坏物 + 狂暴招式破坏加戾气） | ✅ | `entities/Destructible.ts`、`entities/destructibleTarget.ts`、`director/CombatDirector.ts` |
 | 结局文案道德变体 | ✅ | `flow/endingMoralSuffix.ts` |
 | 乌针 Boss（针刺 / 烟遁两阶段） | ✅ | `entities/BossWuzhen.ts` |
 | 程序化音频（雨声 / 悬疑旋律 / 战斗音效） | ✅ | `audio/AudioDirector.ts` |
@@ -193,15 +231,16 @@
 
 ---
 
-## 下一步：M6 · 保护村民道德事件 + 限场地破坏机制
+## 下一步：第二章·龙刃初鸣
 
-**待开发内容**：
-- **保护村民道德事件**：村民被敌人威胁时玩家介入保护 → `protectedVillager` ChoiceId（StoryFlags 已预留）→ 守心 +
-- **限场地破坏机制**：GDD 第五章"保护无辜 NPC + 限制场地破坏"——首次把"克制"做成硬性战斗机制（狂暴大范围技能破坏环境/伤及 NPC 会有硬性惩罚）
+**待开发内容**（GDD §6 第二章）：
+- 系统化刀法教学（轻/重/闪避/格挡）
+- 首次精英战：铁臂罗（重甲+抓投，教学"破防"）
+- 戾气值第一次显现：差点误伤无辜路人 + 龙刃首次泛红
+- 玄松老人登场阻止，带主角离开
+- 新场景：荒废驿站、竹林小道、山神庙、断桥
 
-**前置依赖**：M4 对话系统 + M5 误伤判定已就绪。M6 需新建"敌人威胁 NPC"AI 行为或脚本事件，工作量较大，与 GDD 第五章机制契合度高，可考虑合并到第五章开发或独立做第一章完整化收尾。
-
-**备选方向**：若暂不开发 M6，可转向 **第二章·龙刃初鸣**（GDD §6）——系统化刀法教学、首次精英战（铁臂罗）、戾气值第一次显现（差点误伤无辜路人 + 龙刃首次泛红），引入新场景与敌人类型。
+**前置依赖**：第一章 M0-M6 已完成，第一章成为完整垂直切片。
 
 ---
 
