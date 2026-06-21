@@ -10,6 +10,8 @@ import type { EnemyDirector } from './EnemyDirector';
 import type { Hud } from '../ui/Hud';
 import type { SfxName } from '../audio/AudioDirector';
 import { isAllyWithinRange } from '../entities/allyCasualty';
+import { isDestructibleInRange } from '../entities/destructibleTarget';
+import type { Destructible } from '../entities/Destructible';
 import { isMeleeHittable } from '../entities/meleeTarget';
 import type { Npc } from '../entities/Npc';
 
@@ -39,6 +41,7 @@ export class CombatDirector {
     private readonly hud: Hud,
     sfx: (name: SfxName) => void,
     private readonly npcs: readonly Npc[],
+    private readonly destructibles: readonly Destructible[],
     onBossDefeated: () => void,
   ) {
     this.sfx = sfx;
@@ -77,6 +80,9 @@ export class CombatDirector {
         time,
       )
     ) {
+      this.sfx('hit');
+    }
+    if (this.resolveThreatMeleeHit(finalStrike, COMBAT_BALANCE.meleeRange.enemyX, time)) {
       this.sfx('hit');
     }
   }
@@ -136,6 +142,36 @@ export class CombatDirector {
   }
 
   /**
+   * 威胁者近战命中结算：威胁 bandit 不在 enemies 数组，需单独判定。
+   * 求饶中的威胁者不结算（与普通敌人一致）。击败给龙魂+戾气（同普攻击杀）。
+   * @returns 是否命中（用于命中音效）
+   */
+  private resolveThreatMeleeHit(strike: Strike, enemyRange: number, time: number): boolean {
+    const threat = this.enemies.activeThreat;
+    if (
+      !threat?.active ||
+      !isMeleeHittable(
+        threat.active,
+        threat.isSurrendered,
+        threat.x,
+        threat.y,
+        this.player.x,
+        this.player.y,
+        enemyRange,
+        COMBAT_BALANCE.meleeRange.enemyY,
+      )
+    ) {
+      return false;
+    }
+    threat.receiveStrike(strike, time);
+    if (!threat.active) {
+      this.player.machine.addSoul(COMBAT_BALANCE.soulReward.kill);
+      this.player.moral.addLiqi(COMBAT_BALANCE.liqiReward.kill);
+    }
+    return true;
+  }
+
+  /**
    * 每帧处理刀气释放（U 键）与已存在刀气的飞行/命中推进。
    * 释放需消耗龙魂（BLADE_AURA_SOUL_COST），不足则无反应。
    */
@@ -163,11 +199,15 @@ export class CombatDirector {
     }
   }
 
-  private releaseBladeAura(_time: number) {
+  private releaseBladeAura(time: number) {
     // 求饶者不被刀气结算（统一走求饶对话处置）。
     const targets: CombatActor[] = this.enemies.activeEnemies.filter(
       (enemy) => !enemy.isSurrendered,
     );
+    const threat = this.enemies.activeThreat;
+    if (threat?.active && !threat.isSurrendered) {
+      targets.push(threat);
+    }
     const boss = this.enemies.activeBoss;
     if (boss?.active) {
       targets.push(boss);
@@ -184,6 +224,28 @@ export class CombatDirector {
       this.sfx,
     );
     this.auras.push(aura);
+
+    // 刀气路径破坏判定：沿玩家朝向直线，y 接近的可破坏物按距离错峰碎裂。
+    const auraRange = 520;
+    const dir = this.player.facing;
+    for (const d of this.destructibles) {
+      if (d.isDestroyed) {
+        continue;
+      }
+      const dx = d.x - this.player.x;
+      if (dx !== 0 && Math.sign(dx) !== dir) {
+        continue;
+      }
+      if (Math.abs(dx) < auraRange && Math.abs(d.y - this.player.y) < 60) {
+        const delay = (Math.abs(dx) / 14) * 16;
+        this.scene.time.delayedCall(delay, () => {
+          if (d.takeDamage()) {
+            this.player.moral.addLiqi(COMBAT_BALANCE.liqiReward.destructibleBladeAura);
+          }
+        });
+      }
+    }
+    void time;
   }
 
   /**
@@ -289,6 +351,9 @@ export class CombatDirector {
     if (this.resolveMeleeHit(cast.strike, range, bossRange, time)) {
       this.sfx('hit');
     }
+    if (this.resolveThreatMeleeHit(cast.strike, range, time)) {
+      this.sfx('hit');
+    }
 
     // 狂暴误伤判定：大范围技能波及村民 NPC（游龙回身是精准反击，不波及）
     if (cast.form.hitsAllies && cast.skillId !== 'dragonReturn') {
@@ -315,6 +380,43 @@ export class CombatDirector {
       if (harmedNewAlly) {
         this.player.moral.addLiqi(COMBAT_BALANCE.liqiReward.allyHarm);
         this.hud.showSubtitle('刀气擦过村民——你差点伤到了无辜的人。');
+      }
+    }
+
+    // 可破坏物破坏判定：游龙回身是精准反击，不破坏；其余技能按形态范围波及。
+    if (cast.skillId !== 'dragonReturn') {
+      let destroyedCount = 0;
+      for (const d of this.destructibles) {
+        if (d.isDestroyed) {
+          continue;
+        }
+        if (
+          isDestructibleInRange(
+            d.x,
+            d.y,
+            this.player.x,
+            this.player.y,
+            range,
+            COMBAT_BALANCE.meleeRange.enemyY,
+          )
+        ) {
+          if (d.takeDamage()) {
+            destroyedCount += 1;
+          }
+        }
+      }
+      if (destroyedCount > 0) {
+        // 用 cast.hitsAllies 检测狂暴形态（顶层字段，与现有 NPC 误伤判定一致）
+        const isWrath = cast.hitsAllies;
+        const penalty = isWrath
+          ? COMBAT_BALANCE.liqiReward.destructibleSkillWrath
+          : COMBAT_BALANCE.liqiReward.destructibleSkill;
+        for (let i = 0; i < destroyedCount; i += 1) {
+          this.player.moral.addLiqi(penalty);
+        }
+        if (isWrath) {
+          this.hud.showSubtitle('刀气失控，劈碎了身侧之物——你不该对无辜之物下重手。');
+        }
       }
     }
 
