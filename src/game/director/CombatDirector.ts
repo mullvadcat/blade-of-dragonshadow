@@ -240,7 +240,7 @@ export class CombatDirector {
       if (Math.abs(dx) < auraRange && Math.abs(d.y - this.player.y) < 60) {
         const delay = (Math.abs(dx) / 14) * 16;
         this.scene.time.delayedCall(delay, () => {
-          if (d.takeDamage()) {
+          if (d.active && d.takeDamage()) {
             this.player.moral.addLiqi(COMBAT_BALANCE.liqiReward.destructibleBladeAura);
           }
         });
