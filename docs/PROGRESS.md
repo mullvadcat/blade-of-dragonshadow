@@ -206,7 +206,7 @@
 
 ---
 
-## 当前可玩内容概览（第一章·雨夜疑案）
+## 当前可玩内容概览（第一章·雨夜疑案 + 第二章·龙刃初鸣）
 
 | 功能 | 状态 | 代码位置 |
 | --- | --- | --- |
@@ -225,22 +225,52 @@
 | 结局文案道德变体 | ✅ | `flow/endingMoralSuffix.ts` |
 | 乌针 Boss（针刺 / 烟遁两阶段） | ✅ | `entities/BossWuzhen.ts` |
 | 程序化音频（雨声 / 悬疑旋律 / 战斗音效） | ✅ | `audio/AudioDirector.ts` |
-| 程序化美术（角色 / 场景 / 刀光） | ✅ | `art/CharacterArt.ts`、`world/WorldBuilder.ts` |
+| 程序化美术（角色 / 场景 / 刀光） | ✅ | `art/CharacterArt.ts`、`world/WorldBuilder.ts`、`world/WorldBuilderCh2.ts` |
+| **第二章：破防值系统** | ✅ | `flow/poiseState.ts`、`entities/BossIronArmLuo.ts` |
+| **第二章：铁臂罗 Boss（两阶段）** | ✅ | `entities/BossIronArmLuo.ts` |
+| **第二章：荒废驿站地图 + 波次调度** | ✅ | `world/WorldBuilderCh2.ts`、`director/EnemyDirectorCh2.ts` |
+| **第二章：章节路由（`?chapter=2`）** | ✅ | `GameScene.ts`（createCh2 / updateCh2） |
 
-**操作**：WASD 移动 · Space 闪避 · J 轻斩 · K 重斩 · L 格挡 · U 刀气 · I 潜龙 · O 裂鳞 · E 对话/调查 · R 重开 · M 静音
+**第一章操作**：WASD 移动 · Space 闪避 · J 轻斩 · K 重斩 · L 格挡 · U 刀气 · I 潜龙 · O 裂鳞 · E 对话/调查 · R 重开 · M 静音
+
+**第二章操作**：同上（O 裂鳞破甲为破防 Boss 核心技）；默认启动第一章，可通过 `scene.restart({ chapter: 2 })` 进入
 
 ---
 
-## 下一步：第二章·龙刃初鸣
+---
 
-**待开发内容**（GDD §6 第二章）：
-- 系统化刀法教学（轻/重/闪避/格挡）
-- 首次精英战：铁臂罗（重甲+抓投，教学"破防"）
-- 戾气值第一次显现：差点误伤无辜路人 + 龙刃首次泛红
-- 玄松老人登场阻止，带主角离开
-- 新场景：荒废驿站、竹林小道、山神庙、断桥
+## M7：第二章·龙刃初鸣 垂直切片（2026-06-21）
 
-**前置依赖**：第一章 M0-M6 已完成，第一章成为完整垂直切片。
+**范围**：破防系统 + 铁臂罗 Boss + 荒废驿站地图；GameScene 章节工厂路由（`?chapter=2`），Ch1 代码零改动。
+
+**核心交付**：
+- `src/game/flow/poiseState.ts` — 破防值纯函数（`createPoise / takePoiseDamage / resetPoise / isPoiseBreaking / isStaggering`），零 Phaser 依赖，11 个单测全绿
+- `src/game/entities/BossIronArmLuo.ts` — 两阶段 Boss（Phase 1：护甲+重拳；Phase 2：冲拳+抓投），内置破防条 Graphics
+- `src/game/world/WorldBuilderCh2.ts` — 3200×720 荒废驿站地图，程序生成美术（深蓝背景 + 竹影 + 月光）
+- `src/game/director/EnemyDirectorCh2.ts` — 三波次敌人调度（两波小怪 + Boss），实现 `IEnemyDirector`
+- `src/game/flow/FlowControllerCh2.ts` — 位置触发波次、Boss 击败检测、章节结束淡出文字序列
+- `src/game/director/IEnemyDirector.ts` — 跨章节导演共享接口，结构子类型兼容
+- `src/game/GameScene.ts` — `preload/create/update` 三处 chapter 路由分支，Ch2 独立 `createCh2 / updateCh2`
+
+**设计文件**：
+- Spec：[`docs/superpowers/specs/2026-06-21-ch2-iron-arm-luo-design.md`](./superpowers/specs/2026-06-21-ch2-iron-arm-luo-design.md)
+- Plan：[`docs/superpowers/plans/2026-06-21-ch2-iron-arm-luo.md`](./superpowers/plans/2026-06-21-ch2-iron-arm-luo.md)
+
+**行为要点**：
+- Phase 1 护甲：普攻仅造成 30% 伤害；裂鳞破甲（O 键）积累破防值，3 次满破触发 1500ms 硬直（护甲失效窗口）。
+- Phase 2（HP ≤ 40%）：护甲永久移除，进入冲拳+抓投 AI 状态机；破防条隐藏。
+- 章节结束：Boss 击败后 1.2s sfx → 0.8s 淡黑 → 显示「铁臂罗，授首。」文字 → 4s 后重启第一章。
+
+**测试**：110/110 全绿（新增 11 个 poise-state 单测）
+
+---
+
+## 下一步
+
+**P1 候选**（GDD §6 第二章剩余内容 / 第三章方向）：
+- 戾气值第一次显现警示（差点误伤旁观者 + 龙刃首次泛红）
+- 玄松老人登场过场
+- 教学型关卡（轻/重/格挡/破防引导提示）
 
 ---
 
