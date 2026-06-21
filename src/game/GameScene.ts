@@ -11,6 +11,7 @@ import { FlowController } from './flow/FlowController';
 import { DialogSystem, type DialogContext } from './dialog/DialogSystem';
 import { DialogUi } from './dialog/DialogUi';
 import type { Npc } from './entities/Npc';
+import type { Destructible } from './entities/Destructible';
 
 /**
  * 第一章·雨夜疑案 主场景。
@@ -35,6 +36,7 @@ export class GameScene extends Phaser.Scene {
   private dialogSystem!: DialogSystem;
   private dialogUi!: DialogUi;
   private npcs: Npc[] = [];
+  private destructibles: Destructible[] = [];
 
   constructor() {
     super('GameScene');
@@ -67,6 +69,7 @@ export class GameScene extends Phaser.Scene {
     const ground = this.world.buildPlatforms();
     const points = this.world.createInvestigationPoints();
     this.npcs = this.world.createNpcs();
+    this.destructibles = this.world.createDestructibles();
 
     // 玩家与输入。
     this.player = new Player(this, 130, 560, this.sfx);
@@ -108,7 +111,7 @@ export class GameScene extends Phaser.Scene {
       this.hud,
       this.sfx,
       this.npcs,
-      [],
+      this.destructibles,
       () => {
         if (!this.flow.endingStarted) {
           this.flow.startEnding();
@@ -165,6 +168,7 @@ export class GameScene extends Phaser.Scene {
     this.flow.handleSurrender();
     this.flow.handleInvestigation();
     this.flow.handleStudyGate();
+    this.flow.handleProtectEvent();
 
     // 玩家攻击与技能并行处理：consumeAttack 返回普通斩击或游龙回身派生标记。
     // 每帧都轮询技能键(I/O)，避免同帧按攻击+技能时 JustDown 标志被帧末清除导致技能丢失。
@@ -190,6 +194,15 @@ export class GameScene extends Phaser.Scene {
     const bossStrike = this.enemyDirector.advanceBoss(time, this.player.x);
     if (bossStrike && !this.flow.endingStarted && !this.flow.gameOverStarted) {
       this.combatDirector.applyEnemyStrike(bossStrike, time);
+    }
+
+    const threat = this.enemyDirector.activeThreat;
+    if (threat?.active && !this.flow.protectResolved) {
+      threat.update(time, this.flow.threatenedVillagerX);
+      const threatStrike = threat.advanceAttack(time, this.flow.threatenedVillagerX);
+      if (threatStrike && !this.flow.endingStarted && !this.flow.gameOverStarted) {
+        this.combatDirector.applyEnemyStrike(threatStrike, time);
+      }
     }
 
     for (const npc of this.npcs) {
