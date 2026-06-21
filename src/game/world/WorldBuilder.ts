@@ -33,9 +33,57 @@ export class WorldBuilder {
     };
 
     createCharacterTextures(this.scene);
+    this.createDestructibleTextures();
     createRect('ground', 96, 28, 0x15151a);
     createRect('paper', 28, 28, 0xd2b777);
     createRect('blade', 72, 8, 0xaaf7ff);
+  }
+
+  /** 生成 4 种可破坏物纹理：货摊(棕褐长方)/灯笼(暗红圆)/木桶(深棕矮方)/水缸(青灰椭圆)。 */
+  private createDestructibleTextures() {
+    const make = (key: string, draw: (g: Phaser.GameObjects.Graphics) => void, w: number, h: number) => {
+      const gfx = this.scene.make.graphics({ x: 0, y: 0 }, false);
+      draw(gfx);
+      gfx.generateTexture(key, w, h);
+      gfx.destroy();
+    };
+
+    make('destructible-stall', (g) => {
+      g.fillStyle(0x4a3520, 1);
+      g.fillRect(0, 28, 60, 36);
+      g.fillStyle(0x6a4a28, 1);
+      g.fillRect(4, 8, 52, 24);
+      g.fillStyle(0x3a2a18, 1);
+      g.fillRect(0, 60, 60, 6);
+    }, 60, 66);
+
+    make('destructible-lantern', (g) => {
+      g.fillStyle(0x6a1818, 1);
+      g.fillCircle(12, 18, 12);
+      g.fillStyle(0xd09742, 0.9);
+      g.fillRect(8, 14, 8, 8);
+      g.fillStyle(0x2a1a0a, 1);
+      g.fillRect(10, 2, 4, 6);
+    }, 24, 32);
+
+    make('destructible-barrel', (g) => {
+      g.fillStyle(0x4a3520, 1);
+      g.fillRect(2, 4, 28, 40);
+      g.fillStyle(0x2a1a0a, 1);
+      g.fillRect(0, 12, 32, 3);
+      g.fillRect(0, 32, 32, 3);
+      g.fillStyle(0x6a4a28, 1);
+      g.fillRect(2, 4, 28, 2);
+    }, 32, 48);
+
+    make('destructible-urn', (g) => {
+      g.fillStyle(0x3a4a55, 1);
+      g.fillEllipse(20, 24, 32, 40);
+      g.fillStyle(0x5a6a75, 0.8);
+      g.fillEllipse(20, 14, 24, 10);
+      g.fillStyle(0x2a3a45, 1);
+      g.fillRect(14, 4, 12, 4);
+    }, 40, 48);
   }
 
   /** 绘制背景、区域标签、雨线、火光。 */
