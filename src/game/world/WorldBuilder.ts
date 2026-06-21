@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { ClueId } from '../story/StoryFlags';
 import { createCharacterTextures } from '../art/CharacterArt';
 import { Npc } from '../entities/Npc';
+import { Destructible, type DestructibleKind } from '../entities/Destructible';
 
 export type InvestigationPoint = {
   x: number;
@@ -187,6 +188,25 @@ export class WorldBuilder {
       body.setImmovable(true);
     }
     return npcs;
+  }
+
+  /** 创建可破坏环境物体：保护事件区域 3 件（C3 轻联动）+ 祠堂前 2 件 + 旧宅前 2 件。 */
+  createDestructibles(): Destructible[] {
+    const specs: Array<[number, number, DestructibleKind, string]> = [
+      // 保护事件区域（村民 1990 附近）
+      [1880, 612, 'stall', '货摊'],
+      [2100, 612, 'lantern', '灯笼'],
+      [2150, 612, 'barrel', '木桶'],
+      // 祠堂前
+      [820, 612, 'urn', '水缸'],
+      [880, 612, 'lantern', '灯笼'],
+      // 旧宅前
+      [1420, 612, 'stall', '货摊'],
+      [1620, 612, 'barrel', '木桶'],
+    ];
+    return specs.map(
+      ([x, y, kind, label]) => new Destructible(this.scene, x, y, { kind, label }),
+    );
   }
 
   private addZoneLabel(x: number, label: string) {
