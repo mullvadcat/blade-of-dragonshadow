@@ -11,7 +11,6 @@ import { FlowController } from './flow/FlowController';
 import { DialogSystem, type DialogContext } from './dialog/DialogSystem';
 import { DialogUi } from './dialog/DialogUi';
 import type { Npc } from './entities/Npc';
-import type { Destructible } from './entities/Destructible';
 
 /**
  * 第一章·雨夜疑案 主场景。
@@ -109,7 +108,7 @@ export class GameScene extends Phaser.Scene {
       this.hud,
       this.sfx,
       this.npcs,
-      [] as unknown as readonly Destructible[],
+      [],
       () => {
         if (!this.flow.endingStarted) {
           this.flow.startEnding();

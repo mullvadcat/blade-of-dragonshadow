@@ -164,6 +164,7 @@ export class CombatDirector {
       return false;
     }
     threat.receiveStrike(strike, time);
+    this.player.machine.addSoul(COMBAT_BALANCE.soulReward.meleeHit);
     if (!threat.active) {
       this.player.machine.addSoul(COMBAT_BALANCE.soulReward.kill);
       this.player.moral.addLiqi(COMBAT_BALANCE.liqiReward.kill);
@@ -199,7 +200,7 @@ export class CombatDirector {
     }
   }
 
-  private releaseBladeAura(time: number) {
+  private releaseBladeAura(_time: number) {
     // 求饶者不被刀气结算（统一走求饶对话处置）。
     const targets: CombatActor[] = this.enemies.activeEnemies.filter(
       (enemy) => !enemy.isSurrendered,
@@ -229,7 +230,7 @@ export class CombatDirector {
     const auraRange = 520;
     const dir = this.player.facing;
     for (const d of this.destructibles) {
-      if (d.isDestroyed) {
+      if (!d.active || d.isDestroyed) {
         continue;
       }
       const dx = d.x - this.player.x;
@@ -245,7 +246,6 @@ export class CombatDirector {
         });
       }
     }
-    void time;
   }
 
   /**
@@ -387,7 +387,7 @@ export class CombatDirector {
     if (cast.skillId !== 'dragonReturn') {
       let destroyedCount = 0;
       for (const d of this.destructibles) {
-        if (d.isDestroyed) {
+        if (!d.active || d.isDestroyed) {
           continue;
         }
         if (
