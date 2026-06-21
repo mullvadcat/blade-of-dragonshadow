@@ -43,4 +43,18 @@ export const COMBAT_BALANCE = {
     damageMultiplier: 1.6,
     guardDamage: 999,
   },
+  ch2Boss: {
+    hp: 300,
+    poiseMax: 100,
+    poiseDamageBreak: 40,
+    guardDamageReduction: 0.70,
+    staggerDuration: 1500,
+    phaseThreshold: 0.40,
+    heavyPunchDamage: 30,
+    heavyPunchGuardDamage: 36,
+    grabDamage: 24,
+    grabGuardDamage: 40,
+    rushPunchDamage: 22,
+    rushPunchGuardDamage: 26,
+  },
 } as const;
