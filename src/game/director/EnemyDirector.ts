@@ -10,6 +10,7 @@ import type { SfxName } from '../audio/AudioDirector';
 export class EnemyDirector {
   private readonly enemies: Enemy[] = [];
   private boss: BossWuzhen | null = null;
+  private threatEnemy: Enemy | null = null;
   private readonly ground: Phaser.Physics.Arcade.StaticGroup;
   private readonly sfx: (name: SfxName) => void;
 
@@ -48,6 +49,18 @@ export class EnemyDirector {
     this.boss = new BossWuzhen(this.scene, 3300, 580, this.sfx);
     this.scene.physics.add.collider(this.boss, this.ground);
     return this.boss;
+  }
+
+  /** 脚本生成威胁村民的 bandit（保护事件用）。单独引用，不进 enemies 数组。 */
+  spawnThreat(x: number, _villagerX: number): Enemy {
+    this.threatEnemy = new Enemy(this.scene, x, 580, 'bandit', this.sfx);
+    this.scene.physics.add.collider(this.threatEnemy, this.ground);
+    return this.threatEnemy;
+  }
+
+  /** 当前威胁者（保护事件用；可能已死亡，调用方需查 .active）。 */
+  get activeThreat(): Enemy | null {
+    return this.threatEnemy;
   }
 
   /**
