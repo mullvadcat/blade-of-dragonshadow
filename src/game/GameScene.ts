@@ -4,10 +4,13 @@ import { Player } from './player/Player';
 import { StoryFlags } from './story/StoryFlags';
 import { AudioDirector, type SfxName } from './audio/AudioDirector';
 import { WorldBuilder } from './world/WorldBuilder';
+import { WorldBuilderCh2 } from './world/WorldBuilderCh2';
 import { EnemyDirector } from './director/EnemyDirector';
+import { EnemyDirectorCh2 } from './director/EnemyDirectorCh2';
 import { CombatDirector } from './director/CombatDirector';
 import { AudioController } from './director/AudioController';
 import { FlowController } from './flow/FlowController';
+import { FlowControllerCh2 } from './flow/FlowControllerCh2';
 import { DialogSystem, type DialogContext } from './dialog/DialogSystem';
 import { DialogUi } from './dialog/DialogUi';
 import type { Npc } from './entities/Npc';
@@ -28,15 +31,25 @@ export class GameScene extends Phaser.Scene {
   private audioDirector = new AudioDirector();
   private sfx: (name: SfxName) => void = () => {};
 
+  private chapter = 1;
+
+  // Ch1 子系统
   private world!: WorldBuilder;
   private enemyDirector!: EnemyDirector;
-  private combatDirector!: CombatDirector;
   private audioController!: AudioController;
   private flow!: FlowController;
   private dialogSystem!: DialogSystem;
   private dialogUi!: DialogUi;
   private npcs: Npc[] = [];
   private destructibles: Destructible[] = [];
+
+  // Ch2 子系统（chapter === 2 时有效）
+  private worldCh2: WorldBuilderCh2 | null = null;
+  private enemyDirectorCh2: EnemyDirectorCh2 | null = null;
+  private flowCh2: FlowControllerCh2 | null = null;
+
+  // 共享子系统
+  private combatDirector!: CombatDirector;
 
   constructor() {
     super('GameScene');
@@ -50,15 +63,30 @@ export class GameScene extends Phaser.Scene {
   private resetRunState() {
     this.story = new StoryFlags();
     this.audioDirector.setMode('explore');
+    this.worldCh2 = null;
+    this.enemyDirectorCh2 = null;
+    this.flowCh2 = null;
   }
 
   preload() {
-    this.world = new WorldBuilder(this);
-    this.world.createGeneratedTextures();
+    this.chapter = (this.scene.settings.data as { chapter?: number })?.chapter ?? 1;
+    if (this.chapter === 2) {
+      this.worldCh2 = new WorldBuilderCh2(this);
+      this.worldCh2.createGeneratedTextures();
+    } else {
+      this.world = new WorldBuilder(this);
+      this.world.createGeneratedTextures();
+    }
   }
 
   create() {
     this.resetRunState();
+
+    if (this.chapter === 2) {
+      this.createCh2();
+      return;
+    }
+
     this.physics.world.setBounds(0, 0, 4400, 720);
     this.cameras.main.setBounds(0, 0, 4400, 720);
 
@@ -144,7 +172,60 @@ export class GameScene extends Phaser.Scene {
       .setDepth(100);
   }
 
+  private createCh2() {
+    this.physics.world.setBounds(0, 0, 3200, 720);
+    this.cameras.main.setBounds(0, 0, 3200, 720);
+    this.sfx = (name: SfxName) => this.audioDirector.playSfx(name);
+
+    const world = this.worldCh2!;
+    world.drawWorld();
+    const ground = world.buildPlatforms();
+    world.createNpcs();
+
+    this.player = new Player(this, 130, 560, this.sfx);
+    this.cursors = this.input.keyboard!.createCursorKeys();
+    this.physics.add.collider(this.player, ground);
+    this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
+    this.cameras.main.setDeadzone(260, 120);
+
+    this.hud = new Hud(this);
+
+    this.enemyDirectorCh2 = new EnemyDirectorCh2(this, ground, this.sfx);
+    this.flowCh2 = new FlowControllerCh2(this.enemyDirectorCh2, this, this.sfx);
+
+    this.combatDirector = new CombatDirector(
+      this,
+      this.player,
+      this.enemyDirectorCh2,
+      this.hud,
+      this.sfx,
+      [],
+      [],
+      () => {
+        this.time.delayedCall(1200, () => this.scene.restart({ chapter: 2 }));
+      },
+    );
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.audioDirector.stop());
+
+    this.hud.showSubtitle('黑鳞会据点已在前方——铁臂罗，必须在此处斩断。');
+
+    this.add
+      .text(22, 690, '移动WASD 闪避Space 轻斩J 重斩K 格挡L 刀气U 潜龙I 裂鳞O', {
+        color: '#8fa9b0',
+        fontFamily: 'serif',
+        fontSize: '14px',
+      })
+      .setScrollFactor(0)
+      .setDepth(100);
+  }
+
   update(time: number) {
+    if (this.chapter === 2) {
+      this.updateCh2(time);
+      return;
+    }
+
     // 对话进行时：冻结世界，只处理对话输入与 UI
     if (this.dialogSystem.isActive) {
       this.flow.handleDialogInput();
@@ -207,6 +288,42 @@ export class GameScene extends Phaser.Scene {
 
     for (const npc of this.npcs) {
       npc.update();
+    }
+  }
+
+  private updateCh2(time: number) {
+    const flow = this.flowCh2!;
+    const enemies = this.enemyDirectorCh2!;
+
+    this.player.update(time, this.cursors);
+    this.hud.update(this.player, this.story, time, this.combatDirector.skillState);
+
+    if (this.player.machine.isDead()) {
+      return;
+    }
+
+    flow.handleWaveProgression(this.player.x);
+    flow.handleChapterEnd();
+
+    const attackStrike = this.player.consumeAttack(time);
+    if (attackStrike && attackStrike.staminaDamage === -1) {
+      this.combatDirector.handleSkills(time, attackStrike);
+    } else {
+      if (attackStrike) {
+        this.combatDirector.applyPlayerAttack(attackStrike, time);
+      }
+      this.combatDirector.handleSkills(time, null);
+    }
+    this.combatDirector.handleBladeAura(time);
+
+    const enemyStrikes = enemies.advanceEnemies(time, this.player.x);
+    for (const strike of enemyStrikes) {
+      this.combatDirector.applyEnemyStrike(strike, time);
+    }
+
+    const bossStrike = enemies.advanceBoss(time, this.player.x);
+    if (bossStrike && !flow.bossDefeated) {
+      this.combatDirector.applyEnemyStrike(bossStrike, time);
     }
   }
 }
