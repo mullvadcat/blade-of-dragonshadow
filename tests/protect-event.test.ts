@@ -9,8 +9,6 @@ import {
 describe('shouldTriggerProtectEvent', () => {
   const baseCtx: ProtectTriggerContext = {
     hasThreatenedClue: true,
-    playerX: 1990,
-    villagerX: 1990,
     playerToVillagerDist: 50,
     protectResolved: false,
   };
@@ -40,8 +38,6 @@ describe('shouldTriggerProtectEvent', () => {
 describe('resolveProtectOutcome', () => {
   const baseCtx: ProtectOutcomeContext = {
     threatActive: true,
-    threatX: 2100,
-    villagerX: 1990,
     threatToVillagerDist: 110,
   };
 

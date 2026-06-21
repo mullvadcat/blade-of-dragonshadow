@@ -1,8 +1,6 @@
 /** 保护事件触发条件（纯数据，不依赖 Phaser）。 */
 export type ProtectTriggerContext = {
   hasThreatenedClue: boolean;
-  playerX: number;
-  villagerX: number;
   playerToVillagerDist: number;
   protectResolved: boolean;
 };
@@ -14,8 +12,6 @@ export const shouldTriggerProtectEvent = (ctx: ProtectTriggerContext): boolean =
 /** 保护事件成败判定（纯数据）。 */
 export type ProtectOutcomeContext = {
   threatActive: boolean;
-  threatX: number;
-  villagerX: number;
   threatToVillagerDist: number;
 };
 

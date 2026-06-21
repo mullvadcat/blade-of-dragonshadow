@@ -52,10 +52,9 @@ export class EnemyDirector {
   }
 
   /** 脚本生成威胁村民的 bandit（保护事件用）。单独引用，不进 enemies 数组。 */
-  spawnThreat(x: number, _villagerX: number): Enemy {
+  spawnThreat(x: number): void {
     this.threatEnemy = new Enemy(this.scene, x, 580, 'bandit', this.sfx);
     this.scene.physics.add.collider(this.threatEnemy, this.ground);
-    return this.threatEnemy;
   }
 
   /** 当前威胁者（保护事件用；可能已死亡，调用方需查 .active）。 */
