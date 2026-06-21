@@ -24,8 +24,21 @@ describe('endingMoralSuffix', () => {
     expect(endingMoralSuffix(choices)).not.toContain('放过');
   });
 
-  it('ignores unrelated choices', () => {
+  it('returns protection line when villager was protected', () => {
     const choices: MoralChoiceId[] = ['protectedVillager'];
-    expect(endingMoralSuffix(choices)).toBe('');
+    expect(endingMoralSuffix(choices)).toContain('护住');
+    expect(endingMoralSuffix(choices)).toContain('村民');
+  });
+
+  it('prefers execution line over protection when both exist', () => {
+    const choices: MoralChoiceId[] = ['protectedVillager', 'killedScout'];
+    expect(endingMoralSuffix(choices)).toContain('血痕');
+    expect(endingMoralSuffix(choices)).not.toContain('护住');
+  });
+
+  it('prefers protection line over mercy when both exist', () => {
+    const choices: MoralChoiceId[] = ['protectedVillager', 'sparedScout'];
+    expect(endingMoralSuffix(choices)).toContain('护住');
+    expect(endingMoralSuffix(choices)).not.toContain('放过');
   });
 });
