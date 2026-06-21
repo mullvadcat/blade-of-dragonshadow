@@ -25,10 +25,18 @@ export const COMBAT_BALANCE = {
     kill: 10,
     bladeAuraKill: 8,
     allyHarm: 12,
+    /** 破坏可破坏物（刀气路径）。 */
+    destructibleBladeAura: 5,
+    /** 破坏可破坏物（技能，平衡/守护形态）。 */
+    destructibleSkill: 6,
+    /** 破坏可破坏物（技能，狂暴形态）。 */
+    destructibleSkillWrath: 8,
   },
   /** 守心积累。 */
   shouxinReward: {
     perfectGuard: 8,
+    /** 保护村民成功。 */
+    protectVillager: 18,
   },
   /** 完美格挡反击增幅：伤害倍率与破防量（999 视为必破）。 */
   empoweredCounter: {
