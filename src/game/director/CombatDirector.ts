@@ -356,7 +356,7 @@ export class CombatDirector {
     }
 
     // 狂暴误伤判定：大范围技能波及村民 NPC（游龙回身是精准反击，不波及）
-    if (cast.form.hitsAllies && cast.skillId !== 'dragonReturn') {
+    if (cast.hitsAllies && cast.skillId !== 'dragonReturn') {
       let harmedNewAlly = false;
       for (const npc of this.npcs) {
         if (!npc.active) {
