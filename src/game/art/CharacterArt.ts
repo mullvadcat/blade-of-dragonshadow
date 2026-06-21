@@ -1,6 +1,6 @@
 import type Phaser from 'phaser';
 
-export type CharacterArtKey = 'player' | 'scout' | 'bandit' | 'wuzhen' | 'villager';
+export type CharacterArtKey = 'player' | 'scout' | 'bandit' | 'wuzhen' | 'villager' | 'iron-arm' | 'bystander';
 
 export type CharacterArtSpec = {
   textureKey: string;
@@ -46,6 +46,20 @@ export const CHARACTER_ART_SPECS: Record<CharacterArtKey, CharacterArtSpec> = {
     transparentBackground: true,
     features: ['grey robe', 'straw hat', 'hunched frame', 'rain-soaked'],
   },
+  'iron-arm': {
+    textureKey: 'boss-iron-arm',
+    width: 88,
+    height: 108,
+    transparentBackground: true,
+    features: ['burly frame', 'iron right arm guard', 'bare left arm', 'grey heavy robe'],
+  },
+  bystander: {
+    textureKey: 'npc-bystander',
+    width: 58,
+    height: 80,
+    transparentBackground: true,
+    features: ['brown robe', 'no hat', 'hunched posture'],
+  },
 };
 
 const drawPixelRect = (
@@ -83,6 +97,8 @@ export const createCharacterTextures = (scene: Phaser.Scene) => {
   createBanditTexture(scene);
   createWuzhenTexture(scene);
   createVillagerTexture(scene);
+  createIronArmTexture(scene);
+  createBystanderTexture(scene);
 };
 
 const makeGraphics = (scene: Phaser.Scene) => scene.make.graphics({ x: 0, y: 0 }, false);
@@ -178,6 +194,39 @@ const createWuzhenTexture = (scene: Phaser.Scene) => {
   drawPixelRect(gfx, 55, 35, 5, 44, 0x7f1021, 0.72);
 
   gfx.generateTexture(spec.textureKey, spec.width, spec.height);
+  gfx.destroy();
+};
+
+const createIronArmTexture = (scene: Phaser.Scene) => {
+  const gfx = makeGraphics(scene);
+  // 身体（暗灰宽体）
+  drawPixelRect(gfx, 22, 30, 44, 52, 0x2a2830);
+  // 头部
+  drawPixelRect(gfx, 28, 12, 32, 22, 0xb07040);
+  // 右臂铁甲（金棕色厚实）
+  drawPixelRect(gfx, 60, 32, 20, 42, 0x7a6030);
+  drawPixelRect(gfx, 58, 28, 22, 8, 0x8a7040);
+  drawPixelRect(gfx, 62, 70, 18, 8, 0x5a4820);
+  // 左臂（裸臂棕色）
+  drawPixelRect(gfx, 8, 34, 16, 38, 0xb07040);
+  // 下半身
+  drawPixelRect(gfx, 24, 80, 40, 22, 0x1e1c24);
+  // 腿
+  drawPixelRect(gfx, 26, 98, 14, 10, 0x18161e);
+  drawPixelRect(gfx, 48, 98, 14, 10, 0x18161e);
+  gfx.generateTexture('boss-iron-arm', 88, 108);
+  gfx.destroy();
+};
+
+const createBystanderTexture = (scene: Phaser.Scene) => {
+  const gfx = makeGraphics(scene);
+  drawPixelRect(gfx, 18, 14, 22, 18, 0xc89060);
+  drawPixelRect(gfx, 15, 32, 28, 32, 0x6a5030);
+  drawPixelRect(gfx, 12, 38, 10, 28, 0x5a4028);
+  drawPixelRect(gfx, 36, 38, 10, 28, 0x5a4028);
+  drawPixelRect(gfx, 20, 62, 10, 16, 0x3a2c1c);
+  drawPixelRect(gfx, 32, 62, 10, 16, 0x3a2c1c);
+  gfx.generateTexture('npc-bystander', 58, 80);
   gfx.destroy();
 };
 

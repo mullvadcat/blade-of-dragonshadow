@@ -5,6 +5,8 @@ describe('CHARACTER_ART_SPECS', () => {
   it('defines readable silhouettes for every playable demo character', () => {
     expect(Object.keys(CHARACTER_ART_SPECS).sort()).toEqual([
       'bandit',
+      'bystander',
+      'iron-arm',
       'player',
       'scout',
       'villager',
